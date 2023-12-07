@@ -1,8 +1,16 @@
-use bevy::prelude::*;
+use bevy::{asset::AssetMetaCheck, prelude::*};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .insert_resource(AssetMetaCheck::Never)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "TaquinPlus".to_string(),
+                resolution: [800.0, 600.0].into(),
+                ..default()
+            }),
+            ..default()
+        }))
         .add_systems(Startup, setup)
         .run();
 }
