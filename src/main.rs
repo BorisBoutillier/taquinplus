@@ -4,6 +4,7 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 fn main() {
     App::new()
         .insert_resource(AssetMetaCheck::Never)
+        .insert_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "TaquinPlus".to_string(),
@@ -32,49 +33,58 @@ fn setup(
         near: -1000.,
         ..default()
     };
-    let mut camera_tf = Transform::from_xyz(0.0, 0.0, 20.0);
-    camera_tf.look_at(Vec3::ZERO, Vec3::Y);
     commands.spawn(Camera3dBundle {
         projection: Projection::Orthographic(projection),
-        transform: camera_tf,
+        transform: Transform::from_xyz(0.0, 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
     let image_handle = asset_server.load("images/1.png");
     for x in -2..=2 {
         for y in -2..=2 {
-            let material = if (x, y) == (2, -2) {
-                StandardMaterial {
-                    base_color_texture: Some(image_handle.clone()),
-                    ..default()
-                }
-            } else {
-                Color::GREEN.into()
-            };
+            let uv_x1 = 0.2 * (x + 2) as f32;
+            let uv_x2 = uv_x1 + 0.2;
+            let uv_y1 = 0.2 * (4 - (y + 2)) as f32;
+            let uv_y2 = uv_y1 + 0.2;
+            let mut mesh = Mesh::from(shape::Cube::new(1.));
+            #[rustfmt::skip]
+            let uvs = vec![
+                // Assigning the UV coords for the top side.
+                [uv_x1, uv_y2], [uv_x2, uv_y2], [uv_x2, uv_y1], [uv_x1, uv_y1],
+                // Other sides are uniform color of 0,0 pixel
+                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
+                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
+                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
+                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
+                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
+            ];
+            mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
             commands
                 .spawn(PbrBundle {
-                    mesh: meshes.add(Mesh::from(shape::Box::new(90.0, 90.0, 5.))),
-                    material: materials.add(material),
-                    transform: Transform::from_xyz(x as f32 * 100.0, y as f32 * 100.0, 0.0),
+                    mesh: meshes.add(mesh.clone()),
+                    material: materials.add(StandardMaterial {
+                        base_color_texture: Some(image_handle.clone()),
+                        reflectance: 0.0,
+                        ..default()
+                    }),
+                    transform: Transform::from_xyz(x as f32 * 100.0, y as f32 * 100.0, 0.0)
+                        .with_scale(Vec3::new(93.0, 93.0, 5.)),
                     ..default()
                 })
                 .insert(Id(x, y));
         }
     }
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            illuminance: 4000.0,
-            ..default()
-        },
+    commands.insert_resource(AmbientLight {
+        brightness: 3.0,
         ..default()
     });
 }
 
 fn update(time: Res<Time>, mut query: Query<(&mut Transform, &Id)>) {
     for (mut tf, id) in query.iter_mut() {
-        if id.0 == -2 && id.1 == 2 {
+        if id.0 == -2 && id.1.abs() == 2 {
             tf.rotate(Quat::from_axis_angle(Vec3::Y, time.delta_seconds()))
         }
-        if id.0 == 2 && id.1 == -2 {
+        if id.0 == 2 && id.1.abs() == 2 {
             tf.rotate(Quat::from_axis_angle(Vec3::X, time.delta_seconds()))
         }
     }
