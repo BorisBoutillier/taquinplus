@@ -1,6 +1,9 @@
-use bevy::{asset::AssetMetaCheck, prelude::*};
+use bevy::asset::AssetMetaCheck;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
+mod prelude;
+mod tile;
+use crate::prelude::*;
 fn main() {
     App::new()
         .insert_resource(AssetMetaCheck::Never)
@@ -13,19 +16,27 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins(WorldInspectorPlugin::new())
+        //.add_plugins(WorldInspectorPlugin::new())
         .add_systems(Startup, setup)
-        .add_systems(Update, update)
+        .add_systems(Update, update_tile_flip)
+        .add_systems(Update, update_tile_rotation)
+        .add_systems(Update, update_tile_position)
+        .add_systems(Update, test_inputs)
         .run();
 }
 
-#[derive(Component, Debug)]
-struct Id(i32, i32);
+#[derive(Resource)]
+pub struct Puzzle {
+    pub current_tile: Option<Entity>,
+    pub hole: (usize, usize),
+    pub tiles: Vec<Vec<Option<Entity>>>,
+    pub len_x: usize,
+    pub len_y: usize,
+}
 
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let projection = OrthographicProjection {
@@ -39,53 +50,113 @@ fn setup(
         ..default()
     });
     let image_handle = asset_server.load("images/1.png");
-    for x in -2..=2 {
-        for y in -2..=2 {
-            let uv_x1 = 0.2 * (x + 2) as f32;
-            let uv_x2 = uv_x1 + 0.2;
-            let uv_y1 = 0.2 * (4 - (y + 2)) as f32;
-            let uv_y2 = uv_y1 + 0.2;
-            let mut mesh = Mesh::from(shape::Cube::new(1.));
-            #[rustfmt::skip]
-            let uvs = vec![
-                // Assigning the UV coords for the top side.
-                [uv_x1, uv_y2], [uv_x2, uv_y2], [uv_x2, uv_y1], [uv_x1, uv_y1],
-                // Other sides are uniform color of 0,0 pixel
-                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
-                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
-                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
-                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
-                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
-            ];
-            mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-            commands
-                .spawn(PbrBundle {
-                    mesh: meshes.add(mesh.clone()),
-                    material: materials.add(StandardMaterial {
-                        base_color_texture: Some(image_handle.clone()),
-                        reflectance: 0.0,
-                        ..default()
-                    }),
-                    transform: Transform::from_xyz(x as f32 * 100.0, y as f32 * 100.0, 0.0)
-                        .with_scale(Vec3::new(93.0, 93.0, 5.)),
-                    ..default()
+    let len_x = 5;
+    let len_y = 5;
+    let hole = (4, 0);
+    let tiles: Vec<Vec<Option<Entity>>> = (0..len_x)
+        .map(|x| {
+            (0..len_y)
+                .map(|y| {
+                    if (x, y) == hole {
+                        None
+                    } else {
+                        Some(
+                            commands
+                                .spawn(PbrBundle {
+                                    material: materials.add(StandardMaterial {
+                                        base_color_texture: Some(image_handle.clone()),
+                                        reflectance: 0.0,
+                                        ..default()
+                                    }),
+                                    transform: Transform::from_scale(Vec3::new(93.0, 93.0, 5.)),
+                                    ..default()
+                                })
+                                .insert(Piece {
+                                    x,
+                                    y,
+                                    len_x: 5,
+                                    len_y: 5,
+                                })
+                                .insert(Position { x, y, len_x, len_y })
+                                .insert(Flipped {
+                                    flipped_x: false,
+                                    flipped_y: false,
+                                })
+                                .insert(Rotated::default())
+                                .id(),
+                        )
+                    }
                 })
-                .insert(Id(x, y));
-        }
-    }
+                .collect()
+        })
+        .collect();
+    commands.insert_resource(Puzzle {
+        tiles,
+        hole,
+        current_tile: None,
+        len_x,
+        len_y,
+    });
     commands.insert_resource(AmbientLight {
         brightness: 3.0,
         ..default()
     });
 }
 
-fn update(time: Res<Time>, mut query: Query<(&mut Transform, &Id)>) {
-    for (mut tf, id) in query.iter_mut() {
-        if id.0 == -2 && id.1.abs() == 2 {
-            tf.rotate(Quat::from_axis_angle(Vec3::Y, time.delta_seconds()))
+fn test_inputs(
+    mut puzzle: ResMut<Puzzle>,
+    input: Res<Input<KeyCode>>,
+    mut flips: Query<&mut Flipped>,
+    mut rotations: Query<&mut Rotated>,
+    mut positions: Query<&mut Position>,
+) {
+    if input.just_pressed(KeyCode::S) {
+        if let Some(tile) = puzzle.current_tile {
+            let mut flip = flips.get_mut(tile).expect("Oops");
+            flip.flipped_x = !flip.flipped_x;
         }
-        if id.0 == 2 && id.1.abs() == 2 {
-            tf.rotate(Quat::from_axis_angle(Vec3::X, time.delta_seconds()))
+    }
+    if input.just_pressed(KeyCode::W) {
+        if let Some(tile) = puzzle.current_tile {
+            let mut flip = flips.get_mut(tile).expect("Oops");
+            flip.flipped_y = !flip.flipped_y;
         }
+    }
+    if input.just_pressed(KeyCode::A) {
+        if let Some(tile) = puzzle.current_tile {
+            let mut rotation = rotations.get_mut(tile).expect("Oops");
+            rotation.rot_ccw();
+        }
+    }
+    if input.just_pressed(KeyCode::D) {
+        if let Some(tile) = puzzle.current_tile {
+            let mut rotation = rotations.get_mut(tile).expect("Oops");
+            rotation.rot_cw();
+        }
+    }
+    let (hole_x, hole_y) = puzzle.hole;
+    let mut new_hole_x = hole_x;
+    let mut new_hole_y = hole_y;
+    if input.just_pressed(KeyCode::Right) && new_hole_x > 0 {
+        new_hole_x -= 1;
+    }
+    if input.just_pressed(KeyCode::Left) && new_hole_x < puzzle.len_x - 1 {
+        new_hole_x += 1;
+    }
+    if input.just_pressed(KeyCode::Up) && new_hole_y > 0 {
+        new_hole_y -= 1;
+    }
+    if input.just_pressed(KeyCode::Down) && new_hole_y < puzzle.len_y - 1 {
+        new_hole_y += 1;
+    }
+    if new_hole_x != hole_x || new_hole_y != hole_y {
+        let tile = puzzle.tiles[new_hole_x][new_hole_y].take().expect("Oops");
+        let mut tile_position = positions.get_mut(tile).expect("Oops");
+        tile_position.x = hole_x;
+        tile_position.y = hole_y;
+        puzzle.tiles[hole_x][hole_y] = Some(tile);
+        puzzle.hole.0 = new_hole_x;
+        puzzle.hole.1 = new_hole_y;
+        puzzle.current_tile = Some(tile);
     }
 }
