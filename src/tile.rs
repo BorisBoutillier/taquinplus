@@ -42,10 +42,10 @@ impl CwRotation {
 // Also contains the total number of pieces of the reference image
 // for ease of use
 pub struct Piece {
-    pub x: usize,
-    pub y: usize,
-    pub len_x: usize,
-    pub len_y: usize,
+    pub x: isize,
+    pub y: isize,
+    pub len_x: isize,
+    pub len_y: isize,
 }
 
 #[derive(Component)]
@@ -72,10 +72,10 @@ impl Default for Rotated {
 
 #[derive(Component)]
 pub struct Position {
-    pub x: usize,
-    pub y: usize,
-    pub len_x: usize,
-    pub len_y: usize,
+    pub x: isize,
+    pub y: isize,
+    pub len_x: isize,
+    pub len_y: isize,
 }
 
 pub fn update_tile_flip(
@@ -119,7 +119,9 @@ pub fn update_tile_rotation(mut rotations: Query<(&mut Transform, &Rotated), Cha
 }
 pub fn update_tile_position(mut positions: Query<(&mut Transform, &Position), Changed<Position>>) {
     for (mut transform, position) in positions.iter_mut() {
-        transform.translation.x = (position.x as f32 - (position.len_x / 2) as f32) * 100.0;
-        transform.translation.y = (position.y as f32 - (position.len_y / 2) as f32) * 100.0;
+        transform.translation.x =
+            (position.x - (position.len_x / 2)) as f32 / position.len_x as f32;
+        transform.translation.y =
+            (position.y - (position.len_y / 2)) as f32 / position.len_y as f32;
     }
 }
