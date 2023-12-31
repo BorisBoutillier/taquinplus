@@ -110,25 +110,25 @@ fn test_inputs(
     mut rotations: Query<&mut Rotated>,
     mut positions: Query<&mut Position>,
 ) {
-    if input.just_pressed(KeyCode::S) {
+    if input.just_pressed(KeyCode::A) || input.just_pressed(KeyCode::D) {
         if let Some(tile) = puzzle.current_tile {
             let mut flip = flips.get_mut(tile).expect("Oops");
             flip.flipped_x = !flip.flipped_x;
         }
     }
-    if input.just_pressed(KeyCode::W) {
+    if input.just_pressed(KeyCode::W) || input.just_pressed(KeyCode::S) {
         if let Some(tile) = puzzle.current_tile {
             let mut flip = flips.get_mut(tile).expect("Oops");
             flip.flipped_y = !flip.flipped_y;
         }
     }
-    if input.just_pressed(KeyCode::A) {
+    if input.just_pressed(KeyCode::Q) {
         if let Some(tile) = puzzle.current_tile {
             let mut rotation = rotations.get_mut(tile).expect("Oops");
             rotation.rot_ccw();
         }
     }
-    if input.just_pressed(KeyCode::D) {
+    if input.just_pressed(KeyCode::E) {
         if let Some(tile) = puzzle.current_tile {
             let mut rotation = rotations.get_mut(tile).expect("Oops");
             rotation.rot_cw();
