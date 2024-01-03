@@ -1,6 +1,4 @@
-. Remove Position/Rotation component from Tiles, even Flipped ?
-. Store full puzzle state, independently of tiles.
-. Use a Grid2D struct to stored grid details.
+. Update grid to use narray to reduce friction with row/column order
 . Add shuffling.
 . Support two type of puzzle source: One image, width/height,  N image + scoring.
 . Add detection of finished puzzle.

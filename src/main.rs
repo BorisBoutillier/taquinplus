@@ -20,10 +20,8 @@ fn main() {
         }))
         //.add_plugins(WorldInspectorPlugin::new())
         .add_systems(Startup, setup)
-        .add_systems(Update, update_tile_flip)
-        .add_systems(Update, update_tile_rotation)
         .add_systems(Update, test_inputs)
-        .add_event::<PuzzleMoveEvent>()
+        .add_event::<PuzzleActionEvent>()
         .add_systems(Update, handle_action_events)
         .add_systems(Update, update_puzzle_on_resize)
         .run();
@@ -33,6 +31,7 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     materials: ResMut<Assets<StandardMaterial>>,
+    meshes: ResMut<Assets<Mesh>>,
 ) {
     let projection = OrthographicProjection {
         far: 1000.,
@@ -45,7 +44,7 @@ fn setup(
         ..default()
     });
     let puzzle = Puzzle::new(asset_server.load("images/1.png"), 5, 5);
-    puzzle.spawn(&mut commands, materials);
+    puzzle.spawn(&mut commands, materials, meshes);
 
     commands.insert_resource(AmbientLight {
         brightness: 3.0,
@@ -54,14 +53,12 @@ fn setup(
 }
 
 fn test_inputs(
-    mut puzzle: Query<(&Puzzle, &mut Visibility)>,
+    mut puzzle: Query<&mut Visibility, With<Puzzle>>,
     input: Res<Input<KeyCode>>,
-    mut flips: Query<&mut Flipped>,
-    mut rotations: Query<&mut Rotated>,
-    mut puzzle_move_events: EventWriter<PuzzleMoveEvent>,
+    mut puzzle_move_events: EventWriter<PuzzleActionEvent>,
     mut app_exit_events: EventWriter<AppExit>,
 ) {
-    let (puzzle, mut puzzle_visibility) = puzzle.single_mut();
+    let mut puzzle_visibility = puzzle.single_mut();
     if input.just_pressed(KeyCode::Space) {
         *puzzle_visibility = match *puzzle_visibility {
             Visibility::Hidden => Visibility::Visible,
@@ -70,40 +67,28 @@ fn test_inputs(
         };
     }
     if input.just_pressed(KeyCode::A) || input.just_pressed(KeyCode::D) {
-        if let Some(tile) = puzzle.current_tile {
-            let mut flip = flips.get_mut(tile).expect("Oops");
-            flip.flipped_x = !flip.flipped_x;
-        }
+        puzzle_move_events.send(PuzzleActionEvent::ActiveFlipX);
     }
     if input.just_pressed(KeyCode::W) || input.just_pressed(KeyCode::S) {
-        if let Some(tile) = puzzle.current_tile {
-            let mut flip = flips.get_mut(tile).expect("Oops");
-            flip.flipped_y = !flip.flipped_y;
-        }
+        puzzle_move_events.send(PuzzleActionEvent::ActiveFlipY);
     }
     if input.just_pressed(KeyCode::Q) {
-        if let Some(tile) = puzzle.current_tile {
-            let mut rotation = rotations.get_mut(tile).expect("Oops");
-            rotation.rot_ccw();
-        }
+        puzzle_move_events.send(PuzzleActionEvent::ActiveRotateCCW);
     }
     if input.just_pressed(KeyCode::E) {
-        if let Some(tile) = puzzle.current_tile {
-            let mut rotation = rotations.get_mut(tile).expect("Oops");
-            rotation.rot_cw();
-        }
+        puzzle_move_events.send(PuzzleActionEvent::ActiveRotateCW);
     }
     if input.just_pressed(KeyCode::Right) {
-        puzzle_move_events.send(PuzzleMoveEvent::MoveRight);
+        puzzle_move_events.send(PuzzleActionEvent::MoveRight);
     }
     if input.just_pressed(KeyCode::Left) {
-        puzzle_move_events.send(PuzzleMoveEvent::MoveLeft);
+        puzzle_move_events.send(PuzzleActionEvent::MoveLeft);
     }
     if input.just_pressed(KeyCode::Up) {
-        puzzle_move_events.send(PuzzleMoveEvent::MoveUp);
+        puzzle_move_events.send(PuzzleActionEvent::MoveUp);
     }
     if input.just_pressed(KeyCode::Down) {
-        puzzle_move_events.send(PuzzleMoveEvent::MoveDown);
+        puzzle_move_events.send(PuzzleActionEvent::MoveDown);
     }
     if input.just_pressed(KeyCode::Escape) {
         app_exit_events.send(AppExit);

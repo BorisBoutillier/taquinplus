@@ -1,15 +1,9 @@
 use crate::prelude::*;
 use grid::Grid;
-
-#[derive(Default, Debug)]
-pub struct Tile {
-    // When spawned, Bevy entity associated to this tile
-    entity: Option<Entity>,
-}
 #[derive(Component)]
 pub struct Puzzle {
     pub image: Handle<Image>,
-    pub current_tile: Option<Entity>,
+    pub active: (usize, usize),
     pub hole: (usize, usize),
     pub tiles: Grid<Option<Tile>>,
     pub len_x: isize,
@@ -26,7 +20,7 @@ impl Puzzle {
                             if (y, x) == hole {
                                 None
                             } else {
-                                Some(Tile::default())
+                                Some(Tile::new((y, x)))
                             }
                         })
                         .collect::<Vec<_>>()
@@ -36,7 +30,7 @@ impl Puzzle {
         );
         Puzzle {
             image,
-            current_tile: None,
+            active: hole,
             hole,
             tiles,
             len_x: width as isize,
@@ -47,6 +41,7 @@ impl Puzzle {
         mut self,
         commands: &mut Commands,
         mut materials: ResMut<Assets<StandardMaterial>>,
+        mut meshes: ResMut<Assets<Mesh>>,
     ) {
         let material = materials.add(StandardMaterial {
             base_color_texture: Some(self.image.clone()),
@@ -54,30 +49,20 @@ impl Puzzle {
             ..default()
         });
         let tile_scale = 0.93 / (self.len_x.max(self.len_y) as f32);
-        let tile_tf = Transform::from_scale(Vec3::new(tile_scale, tile_scale, 5.));
+        let tile_transform = Transform::from_scale(Vec3::new(tile_scale, tile_scale, 5.));
         let size = self.tiles.size();
         self.tiles.indexed_iter_mut().for_each(|((y, x), tile)| {
             if let Some(tile) = tile.as_mut() {
                 tile.entity = Some(
                     commands
                         .spawn(PbrBundle {
+                            mesh: meshes.add(tile.compute_mesh(size.0, size.1)),
                             material: material.clone(),
-                            transform: tile_tf.with_translation(
+                            transform: tile_transform.with_translation(
                                 Self::tile_translation_from_position((y, x), size),
                             ),
                             ..default()
                         })
-                        .insert(Piece {
-                            x: x as isize,
-                            y: y as isize,
-                            len_x: size.1 as isize,
-                            len_y: size.0 as isize,
-                        })
-                        .insert(Flipped {
-                            flipped_x: false,
-                            flipped_y: false,
-                        })
-                        .insert(Rotated::default())
                         .id(),
                 );
             }
@@ -99,7 +84,7 @@ impl Puzzle {
                 let mut tile_transform = transforms.get_mut(entity).expect("Oops");
                 tile_transform.translation =
                     Self::tile_translation_from_position(self.hole, self.tiles.size());
-                self.current_tile = Some(entity);
+                self.active = self.hole;
             }
             self.tiles[self.hole] = Some(tile);
             self.hole = (y, x);
@@ -115,37 +100,71 @@ impl Puzzle {
 }
 
 #[derive(Event)]
-pub enum PuzzleMoveEvent {
+pub enum PuzzleActionEvent {
     MoveLeft,
     MoveRight,
     MoveUp,
     MoveDown,
     #[allow(dead_code)]
     Move(Entity),
+    ActiveFlipX,
+    ActiveFlipY,
+    ActiveRotateCW,
+    ActiveRotateCCW,
 }
 
 pub fn handle_action_events(
-    mut events: EventReader<PuzzleMoveEvent>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut events: EventReader<PuzzleActionEvent>,
     mut puzzles: Query<&mut Puzzle>,
     mut transforms: Query<&mut Transform>,
 ) {
+    use PuzzleActionEvent::*;
     for event in events.read() {
         let mut puzzle = puzzles.single_mut();
-        let (mut new_hole_y, mut new_hole_x) = puzzle.hole;
+        let height = puzzle.len_y as usize;
+        let width = puzzle.len_x as usize;
+        let active = puzzle.active;
         match event {
-            PuzzleMoveEvent::MoveLeft => {
-                new_hole_x = (new_hole_x + 1).min(puzzle.len_x as usize - 1)
+            MoveLeft | MoveRight | MoveUp | MoveDown | Move(_) => {
+                let (mut new_hole_y, mut new_hole_x) = puzzle.hole;
+                match event {
+                    MoveLeft => new_hole_x = (new_hole_x + 1).min(puzzle.len_x as usize - 1),
+                    MoveRight => new_hole_x = new_hole_x.max(1) - 1,
+                    MoveUp => new_hole_y = new_hole_y.max(1) - 1,
+                    MoveDown => new_hole_y = (new_hole_y + 1).min(puzzle.len_y as usize - 1),
+                    _ => panic!(),
+                }
+                puzzle.move_to_hole(new_hole_y, new_hole_x, &mut transforms);
             }
-            PuzzleMoveEvent::MoveRight => new_hole_x = new_hole_x.max(1) - 1,
-            PuzzleMoveEvent::MoveUp => new_hole_y = new_hole_y.max(1) - 1,
-            PuzzleMoveEvent::MoveDown => {
-                new_hole_y = (new_hole_y + 1).min(puzzle.len_y as usize - 1)
+            ActiveFlipX | ActiveFlipY => {
+                if let Some(tile) = puzzle.tiles.get_mut(active.0, active.1).unwrap() {
+                    match event {
+                        ActiveFlipX => tile.flip_x(),
+                        ActiveFlipY => tile.flip_y(),
+                        _ => panic!(),
+                    }
+                    if let Some(entity) = tile.entity {
+                        let mesh = tile.compute_mesh(height, width);
+                        commands.entity(entity).insert(meshes.add(mesh));
+                    }
+                }
             }
-            PuzzleMoveEvent::Move(_tile) => {
-                // Need the Grid to more conveniently find back position of the tile in the puzzle
-                panic!();
+            ActiveRotateCW | ActiveRotateCCW => {
+                if let Some(tile) = puzzle.tiles.get_mut(active.0, active.1).unwrap() {
+                    match event {
+                        ActiveRotateCW => tile.rotate_cw(),
+                        ActiveRotateCCW => tile.rotate_ccw(),
+                        _ => panic!(),
+                    }
+                    if let Some(entity) = tile.entity {
+                        let mut transform =
+                            transforms.get_mut(entity).expect("Tile has no transform");
+                        transform.rotation = tile.compute_rotation();
+                    }
+                }
             }
         }
-        puzzle.move_to_hole(new_hole_y, new_hole_x, &mut transforms);
     }
 }

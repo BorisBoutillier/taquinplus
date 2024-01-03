@@ -1,7 +1,10 @@
+use crate::prelude::*;
+
 use std::f32::consts::{FRAC_PI_2, PI};
 
-use crate::prelude::*;
+#[derive(Default, Clone, Copy, Debug)]
 pub enum CwRotation {
+    #[default]
     R0,
     R90,
     R180,
@@ -17,7 +20,7 @@ impl CwRotation {
             R370 => FRAC_PI_2,
         }
     }
-    pub fn rot_cw(&self) -> Self {
+    pub fn rotate_cw(&self) -> Self {
         use CwRotation::*;
         match self {
             R0 => R90,
@@ -26,7 +29,7 @@ impl CwRotation {
             R370 => R0,
         }
     }
-    pub fn rot_ccw(&self) -> Self {
+    pub fn rotate_ccw(&self) -> Self {
         use CwRotation::*;
         match self {
             R0 => R370,
@@ -36,56 +39,44 @@ impl CwRotation {
         }
     }
 }
-
-#[derive(Component)]
-// Defines the position of this piece within the reference image
-// Also contains the total number of pieces of the reference image
-// for ease of use
-pub struct Piece {
-    pub x: isize,
-    pub y: isize,
-    pub len_x: isize,
-    pub len_y: isize,
+#[derive(Debug)]
+pub struct Tile {
+    // When spawned, Bevy entity associated to this tile
+    pub entity: Option<Entity>,
+    // Defines if this tile image is flipped on the X axis compared to its initial state
+    flipped_x: bool,
+    // Defines if this tile image is flipped on the Y axis compared to its initial state
+    flipped_y: bool,
+    // Defines the tile image clock-wise rotation compated to its initial state.
+    rotation: CwRotation,
+    // Defines the tile position within the original image.
+    // This will always be (0,0) for a puzzle with type FromSeparateImage
+    pub position: (usize, usize),
 }
-
-#[derive(Component)]
-// Defines the flipped state of this piece in the puzzle.
-pub struct Flipped {
-    pub flipped_x: bool,
-    pub flipped_y: bool,
-}
-#[derive(Component)]
-pub struct Rotated(CwRotation);
-impl Rotated {
-    pub fn rot_cw(&mut self) {
-        self.0 = self.0.rot_cw();
+impl Tile {
+    pub fn new(position: (usize, usize)) -> Tile {
+        Tile {
+            entity: None,
+            flipped_x: false,
+            flipped_y: false,
+            rotation: CwRotation::R0,
+            position,
+        }
     }
-    pub fn rot_ccw(&mut self) {
-        self.0 = self.0.rot_ccw();
+    pub fn compute_rotation(&self) -> Quat {
+        Quat::from_axis_angle(Vec3::Z, self.rotation.angle())
     }
-}
-impl Default for Rotated {
-    fn default() -> Self {
-        Self(CwRotation::R0)
-    }
-}
-
-pub fn update_tile_flip(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    flips: Query<(Entity, &Piece, &Flipped), Changed<Flipped>>,
-) {
-    for (entity, piece, flipped) in flips.iter() {
-        let incr_x = 1.0 / (piece.len_x as f32);
-        let incr_y = 1.0 / (piece.len_y as f32);
-        let mut uv_x1 = piece.x as f32 * incr_x;
-        let mut uv_x2 = (piece.x + 1) as f32 * incr_x;
-        let mut uv_y1 = (piece.len_y - 1 - piece.y) as f32 * incr_y;
-        let mut uv_y2 = (piece.len_y - piece.y) as f32 * incr_y;
-        if flipped.flipped_x {
+    pub fn compute_mesh(&self, width: usize, height: usize) -> Mesh {
+        let incr_x = 1.0 / (width as f32);
+        let incr_y = 1.0 / (height as f32);
+        let mut uv_x1 = self.position.1 as f32 * incr_x;
+        let mut uv_x2 = (self.position.1 + 1) as f32 * incr_x;
+        let mut uv_y1 = (height - 1 - self.position.0) as f32 * incr_y;
+        let mut uv_y2 = (height - self.position.0) as f32 * incr_y;
+        if self.flipped_x {
             (uv_x1, uv_x2) = (uv_x2, uv_x1);
         }
-        if flipped.flipped_y {
+        if self.flipped_y {
             (uv_y1, uv_y2) = (uv_y2, uv_y1);
         }
         let mut mesh = Mesh::from(shape::Cube::new(1.));
@@ -101,11 +92,18 @@ pub fn update_tile_flip(
                 [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
             ];
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-        commands.entity(entity).insert(meshes.add(mesh));
+        mesh
     }
-}
-pub fn update_tile_rotation(mut rotations: Query<(&mut Transform, &Rotated), Changed<Rotated>>) {
-    for (mut transform, rotated) in rotations.iter_mut() {
-        transform.rotation = Quat::from_axis_angle(Vec3::Z, rotated.0.angle());
+    pub fn flip_x(&mut self) {
+        self.flipped_x = !self.flipped_x;
+    }
+    pub fn flip_y(&mut self) {
+        self.flipped_y = !self.flipped_y;
+    }
+    pub fn rotate_cw(&mut self) {
+        self.rotation = self.rotation.rotate_cw();
+    }
+    pub fn rotate_ccw(&mut self) {
+        self.rotation = self.rotation.rotate_ccw();
     }
 }
