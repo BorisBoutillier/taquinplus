@@ -66,13 +66,13 @@ impl Tile {
     pub fn compute_rotation(&self) -> Quat {
         Quat::from_axis_angle(Vec3::Z, self.rotation.angle())
     }
-    pub fn compute_mesh(&self, width: usize, height: usize) -> Mesh {
-        let incr_x = 1.0 / (width as f32);
-        let incr_y = 1.0 / (height as f32);
+    pub fn compute_mesh(&self, size: (usize, usize)) -> Mesh {
+        let incr_x = 1.0 / (size.1 as f32);
+        let incr_y = 1.0 / (size.0 as f32);
         let mut uv_x1 = self.position.1 as f32 * incr_x;
         let mut uv_x2 = (self.position.1 + 1) as f32 * incr_x;
-        let mut uv_y1 = (height - 1 - self.position.0) as f32 * incr_y;
-        let mut uv_y2 = (height - self.position.0) as f32 * incr_y;
+        let mut uv_y1 = (size.0 - 1 - self.position.0) as f32 * incr_y;
+        let mut uv_y2 = (size.0 - self.position.0) as f32 * incr_y;
         if self.flipped_x {
             (uv_x1, uv_x2) = (uv_x2, uv_x1);
         }

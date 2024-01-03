@@ -1,13 +1,22 @@
 use crate::prelude::*;
 use grid::Grid;
+use rand::seq::SliceRandom;
+use rand::Rng;
+use rand::RngCore;
+
+// Coordinate for tile in the puzzle
+// .0 is the row
+// .1 is the column
+type Coord = (usize, usize);
+
 #[derive(Component)]
 pub struct Puzzle {
     pub image: Handle<Image>,
-    pub active: (usize, usize),
-    pub hole: (usize, usize),
+    pub active: Coord,
+    pub hole: Coord,
     pub tiles: Grid<Option<Tile>>,
-    pub len_x: isize,
-    pub len_y: isize,
+    pub len_x: usize,
+    pub len_y: usize,
 }
 impl Puzzle {
     pub fn new(image: Handle<Image>, width: usize, height: usize) -> Self {
@@ -33,8 +42,42 @@ impl Puzzle {
             active: hole,
             hole,
             tiles,
-            len_x: width as isize,
-            len_y: height as isize,
+            len_x: width,
+            len_y: height,
+        }
+    }
+    pub fn shuffle(
+        &mut self,
+        n_moves: usize,
+        flip_pct: f64,
+        rotation_pct: f64,
+        mut rng: impl RngCore,
+    ) {
+        for tile in self.tiles.iter_mut().filter_map(|tile| tile.as_mut()) {
+            if rng.gen_bool(flip_pct) {
+                let what = rng.gen_range(1..=3u8);
+                if what & 1 == 1 {
+                    tile.flip_x();
+                }
+                if what & 2 == 2 {
+                    tile.flip_y();
+                }
+            }
+            if rng.gen_bool(rotation_pct) {
+                for _ in 0..(rng.gen_range(1..=3u8)) {
+                    tile.rotate_cw();
+                }
+            }
+        }
+        let mut reverse_move = None;
+        for _ in 0..n_moves {
+            let mut possible_moves = self.get_valid_moves();
+            possible_moves.retain(|action| Some(*action) != reverse_move);
+            let action = possible_moves
+                .choose(&mut rng)
+                .expect("No possible move found");
+            reverse_move = Some(action.reverse());
+            self.apply_move_event(*action);
         }
     }
     pub fn spawn(
@@ -56,11 +99,10 @@ impl Puzzle {
                 tile.entity = Some(
                     commands
                         .spawn(PbrBundle {
-                            mesh: meshes.add(tile.compute_mesh(size.0, size.1)),
+                            mesh: meshes.add(tile.compute_mesh(size)),
                             material: material.clone(),
-                            transform: tile_transform.with_translation(
-                                Self::tile_translation_from_position((y, x), size),
-                            ),
+                            transform: tile_transform
+                                .with_translation(tile_translation_from_position((y, x), size)),
                             ..default()
                         })
                         .id(),
@@ -78,65 +120,103 @@ impl Puzzle {
             )
             .insert(self);
     }
-    pub fn move_to_hole(&mut self, y: usize, x: usize, transforms: &mut Query<&mut Transform>) {
-        if let Some(tile) = self.tiles.get_mut(y, x).unwrap().take() {
-            if let Some(entity) = tile.entity {
-                let mut tile_transform = transforms.get_mut(entity).expect("Oops");
-                tile_transform.translation =
-                    Self::tile_translation_from_position(self.hole, self.tiles.size());
-                self.active = self.hole;
-            }
-            self.tiles[self.hole] = Some(tile);
-            self.hole = (y, x);
+    pub fn apply_move_event(&mut self, event: PuzzleAction) -> (Option<Entity>, Coord) {
+        use PuzzleAction::*;
+        let mut position = self.hole;
+        let size = self.tiles.size();
+        match event {
+            MoveLeft => position.1 = (position.1 + 1).min(size.1 - 1),
+            MoveRight => position.1 = position.1.max(1) - 1,
+            MoveUp => position.0 = position.0.max(1) - 1,
+            MoveDown => position.0 = (position.0 + 1).min(size.0 - 1),
+            _ => panic!("Not a Move event: {:?}", event),
+        }
+        if let Some(tile) = self.tiles.get_mut(position.0, position.1).unwrap().take() {
+            let destination = self.hole;
+            self.active = destination;
+            let entity = tile.entity;
+            self.tiles[destination] = Some(tile);
+            self.hole = position;
+            (entity, destination)
+        } else {
+            (None, position)
         }
     }
-    fn tile_translation_from_position(position: (usize, usize), size: (usize, usize)) -> Vec3 {
-        Vec3::new(
-            (position.1 as isize - (size.1 as isize / 2)) as f32 / size.1 as f32,
-            (position.0 as isize - (size.0 as isize / 2)) as f32 / size.0 as f32,
-            0.,
-        )
+    fn get_valid_moves(&self) -> Vec<PuzzleAction> {
+        use PuzzleAction::*;
+        let size = self.tiles.size();
+        let mut actions = vec![];
+        if self.hole.0 > 0 {
+            actions.push(MoveUp);
+        }
+        if self.hole.0 < size.0 - 1 {
+            actions.push(MoveDown);
+        }
+        if self.hole.1 > 0 {
+            actions.push(MoveRight);
+        }
+        if self.hole.1 < size.1 - 1 {
+            actions.push(MoveLeft);
+        }
+        actions
     }
 }
+fn tile_translation_from_position(position: (usize, usize), size: (usize, usize)) -> Vec3 {
+    Vec3::new(
+        (position.1 as isize - (size.1 as isize / 2)) as f32 / size.1 as f32,
+        (position.0 as isize - (size.0 as isize / 2)) as f32 / size.0 as f32,
+        0.,
+    )
+}
 
-#[derive(Event)]
-pub enum PuzzleActionEvent {
+#[derive(Debug, Event, Clone, Copy, PartialEq, Eq)]
+pub enum PuzzleAction {
     MoveLeft,
     MoveRight,
     MoveUp,
     MoveDown,
     #[allow(dead_code)]
-    Move(Entity),
     ActiveFlipX,
     ActiveFlipY,
     ActiveRotateCW,
     ActiveRotateCCW,
 }
+impl PuzzleAction {
+    pub fn reverse(&self) -> PuzzleAction {
+        use PuzzleAction::*;
+        match self {
+            MoveLeft => MoveRight,
+            MoveRight => MoveLeft,
+            MoveUp => MoveDown,
+            MoveDown => MoveUp,
+            ActiveFlipX => ActiveFlipX,
+            ActiveFlipY => ActiveFlipY,
+            ActiveRotateCW => ActiveRotateCCW,
+            ActiveRotateCCW => ActiveRotateCW,
+        }
+    }
+}
 
-pub fn handle_action_events(
+pub fn handle_puzzle_action_events(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut events: EventReader<PuzzleActionEvent>,
+    mut events: EventReader<PuzzleAction>,
     mut puzzles: Query<&mut Puzzle>,
     mut transforms: Query<&mut Transform>,
 ) {
-    use PuzzleActionEvent::*;
+    use PuzzleAction::*;
     for event in events.read() {
         let mut puzzle = puzzles.single_mut();
-        let height = puzzle.len_y as usize;
-        let width = puzzle.len_x as usize;
+        let size = puzzle.tiles.size();
         let active = puzzle.active;
         match event {
-            MoveLeft | MoveRight | MoveUp | MoveDown | Move(_) => {
-                let (mut new_hole_y, mut new_hole_x) = puzzle.hole;
-                match event {
-                    MoveLeft => new_hole_x = (new_hole_x + 1).min(puzzle.len_x as usize - 1),
-                    MoveRight => new_hole_x = new_hole_x.max(1) - 1,
-                    MoveUp => new_hole_y = new_hole_y.max(1) - 1,
-                    MoveDown => new_hole_y = (new_hole_y + 1).min(puzzle.len_y as usize - 1),
-                    _ => panic!(),
+            MoveLeft | MoveRight | MoveUp | MoveDown => {
+                let (entity, destination) = puzzle.apply_move_event(*event);
+                if let Some(entity) = entity {
+                    let mut tile_transform = transforms.get_mut(entity).expect("Oops");
+                    tile_transform.translation =
+                        tile_translation_from_position(destination, puzzle.tiles.size());
                 }
-                puzzle.move_to_hole(new_hole_y, new_hole_x, &mut transforms);
             }
             ActiveFlipX | ActiveFlipY => {
                 if let Some(tile) = puzzle.tiles.get_mut(active.0, active.1).unwrap() {
@@ -146,7 +226,7 @@ pub fn handle_action_events(
                         _ => panic!(),
                     }
                     if let Some(entity) = tile.entity {
-                        let mesh = tile.compute_mesh(height, width);
+                        let mesh = tile.compute_mesh(size);
                         commands.entity(entity).insert(meshes.add(mesh));
                     }
                 }
