@@ -70,14 +70,6 @@ impl Default for Rotated {
     }
 }
 
-#[derive(Component)]
-pub struct Position {
-    pub x: isize,
-    pub y: isize,
-    pub len_x: isize,
-    pub len_y: isize,
-}
-
 pub fn update_tile_flip(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -115,13 +107,5 @@ pub fn update_tile_flip(
 pub fn update_tile_rotation(mut rotations: Query<(&mut Transform, &Rotated), Changed<Rotated>>) {
     for (mut transform, rotated) in rotations.iter_mut() {
         transform.rotation = Quat::from_axis_angle(Vec3::Z, rotated.0.angle());
-    }
-}
-pub fn update_tile_position(mut positions: Query<(&mut Transform, &Position), Changed<Position>>) {
-    for (mut transform, position) in positions.iter_mut() {
-        transform.translation.x =
-            (position.x - (position.len_x / 2)) as f32 / position.len_x as f32;
-        transform.translation.y =
-            (position.y - (position.len_y / 2)) as f32 / position.len_y as f32;
     }
 }

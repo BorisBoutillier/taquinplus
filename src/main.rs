@@ -22,7 +22,6 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, update_tile_flip)
         .add_systems(Update, update_tile_rotation)
-        .add_systems(Update, update_tile_position)
         .add_systems(Update, test_inputs)
         .add_event::<PuzzleMoveEvent>()
         .add_systems(Update, handle_action_events)
@@ -69,12 +68,6 @@ fn test_inputs(
             Visibility::Visible => Visibility::Hidden,
             Visibility::Inherited => panic!(),
         };
-    }
-    if input.just_pressed(KeyCode::A) || input.just_pressed(KeyCode::D) {
-        if let Some(tile) = puzzle.current_tile {
-            let mut flip = flips.get_mut(tile).expect("Oops");
-            flip.flipped_x = !flip.flipped_x;
-        }
     }
     if input.just_pressed(KeyCode::A) || input.just_pressed(KeyCode::D) {
         if let Some(tile) = puzzle.current_tile {
