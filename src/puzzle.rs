@@ -53,22 +53,6 @@ impl Puzzle {
         rotation_pct: f64,
         mut rng: impl RngCore,
     ) {
-        for tile in self.tiles.iter_mut().filter_map(|tile| tile.as_mut()) {
-            if rng.gen_bool(flip_pct) {
-                let what = rng.gen_range(1..=3u8);
-                if what & 1 == 1 {
-                    tile.flip_x();
-                }
-                if what & 2 == 2 {
-                    tile.flip_y();
-                }
-            }
-            if rng.gen_bool(rotation_pct) {
-                for _ in 0..(rng.gen_range(1..=3u8)) {
-                    tile.rotate_cw();
-                }
-            }
-        }
         let mut reverse_move = None;
         for _ in 0..n_moves {
             let mut possible_moves = self.get_valid_moves();
@@ -78,7 +62,46 @@ impl Puzzle {
                 .expect("No possible move found");
             reverse_move = Some(action.reverse());
             self.apply_move_event(*action);
+            if let Some(Some(active_tile)) = self.tiles.get_mut(self.active.0, self.active.1) {
+                if rng.gen_bool(flip_pct) {
+                    let what = rng.gen_range(1..=3u8);
+                    if what & 1 == 1 {
+                        active_tile.flip_x();
+                    }
+                    if what & 2 == 2 {
+                        active_tile.flip_y();
+                    }
+                }
+                if rng.gen_bool(rotation_pct) {
+                    for _ in 0..(rng.gen_range(1..=3u8)) {
+                        active_tile.rotate_cw();
+                    }
+                }
+            }
         }
+    }
+    pub fn is_solved(&self) -> bool {
+        let mut incorrect_placement = 0;
+        let mut incorrect_flip = 0;
+        let mut incorrect_rotation = 0;
+        for (coord, tile) in self.tiles.indexed_iter() {
+            if let Some(tile) = tile {
+                if tile.position != coord {
+                    incorrect_placement += 1;
+                }
+                if tile.is_flipped() {
+                    incorrect_flip += 1;
+                }
+                if tile.is_rotated() {
+                    incorrect_rotation += 1;
+                }
+            }
+        }
+        println!(
+            "Tile errors: {} / {} / {}",
+            incorrect_placement, incorrect_flip, incorrect_rotation
+        );
+        incorrect_placement == 0 && incorrect_flip == 0 && incorrect_rotation == 0
     }
     pub fn spawn(
         mut self,
@@ -245,6 +268,9 @@ pub fn handle_puzzle_action_events(
                     }
                 }
             }
+        }
+        if puzzle.is_solved() {
+            println!("SOLVED");
         }
     }
 }

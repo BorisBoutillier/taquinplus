@@ -1,7 +1,9 @@
-. Update grid to use narray to reduce friction with row/column order
-. Add shuffling.
-. Support two type of puzzle source: One image, width/height,  N image + scoring.
 . Add detection of finished puzzle.
+. Add showing of helpers:
+    Possibly to overlay solution with `CTRL`
+. Move Puzzle spawn as an `impl Command`
+. Update grid to use narray to reduce friction with row/column order
+. Support two type of puzzle source: One image, width/height,  N image + scoring.
 . Add puzzle conf:
     . Image source,
     . Size.
@@ -15,7 +17,6 @@
 . Add a scoring system:
     . Number of actions ?
     . Time for completions ? ( Requires start countdown)
-. Add showing of helpers
 . Add animation ( removing padding) on finished puzzle.
 . Add action animations, blending together:
     . Slides: X/Y movement

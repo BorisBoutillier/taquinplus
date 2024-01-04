@@ -2,7 +2,7 @@ use crate::prelude::*;
 
 use std::f32::consts::{FRAC_PI_2, PI};
 
-#[derive(Default, Clone, Copy, Debug)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CwRotation {
     #[default]
     R0,
@@ -100,10 +100,16 @@ impl Tile {
     pub fn flip_y(&mut self) {
         self.flipped_y = !self.flipped_y;
     }
+    pub fn is_flipped(&self) -> bool {
+        self.flipped_x | self.flipped_y
+    }
     pub fn rotate_cw(&mut self) {
         self.rotation = self.rotation.rotate_cw();
     }
     pub fn rotate_ccw(&mut self) {
         self.rotation = self.rotation.rotate_ccw();
+    }
+    pub fn is_rotated(&self) -> bool {
+        self.rotation != CwRotation::R0
     }
 }

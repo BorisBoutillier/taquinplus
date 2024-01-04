@@ -46,7 +46,7 @@ fn setup(
         ..default()
     });
     let mut puzzle = Puzzle::new(asset_server.load("images/1.png"), 5, 5);
-    puzzle.shuffle(20, 0., 0., &mut rng);
+    puzzle.shuffle(5, 0.5, 0.5, &mut rng);
     puzzle.spawn(&mut commands, materials, meshes);
 
     commands.insert_resource(AmbientLight {
