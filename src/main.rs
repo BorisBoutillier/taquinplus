@@ -1,7 +1,8 @@
+use bevy::input::common_conditions::input_toggle_active;
 use bevy::window::WindowResized;
 use bevy::{app::AppExit, asset::AssetMetaCheck};
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use rand::thread_rng;
-//use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 mod prelude;
 mod puzzle;
@@ -19,21 +20,19 @@ fn main() {
             }),
             ..default()
         }))
-        //.add_plugins(WorldInspectorPlugin::new())
+        .add_plugins(
+            WorldInspectorPlugin::default().run_if(input_toggle_active(false, KeyCode::Space)),
+        )
         .add_systems(Startup, setup)
         .add_systems(Update, test_inputs)
         .add_event::<PuzzleAction>()
         .add_systems(Update, handle_puzzle_action_events)
         .add_systems(Update, update_puzzle_on_resize)
+        .add_systems(Update, active_tile)
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    materials: ResMut<Assets<StandardMaterial>>,
-    meshes: ResMut<Assets<Mesh>>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let mut rng = thread_rng();
     let projection = OrthographicProjection {
         far: 1000.,
@@ -47,7 +46,7 @@ fn setup(
     });
     let mut puzzle = Puzzle::new(asset_server.load("images/1.png"), 5, 5);
     puzzle.shuffle(5, 0.5, 0.5, &mut rng);
-    puzzle.spawn(&mut commands, materials, meshes);
+    commands.add(puzzle);
 
     commands.insert_resource(AmbientLight {
         brightness: 3.0,
@@ -56,19 +55,12 @@ fn setup(
 }
 
 fn test_inputs(
-    mut puzzle: Query<&mut Visibility, With<Puzzle>>,
+    mut puzzle_solution: Query<&mut Visibility, (With<PuzzleSolution>, Without<PuzzleTiles>)>,
+    mut puzzle_tiles: Query<&mut Visibility, With<PuzzleTiles>>,
     input: Res<Input<KeyCode>>,
     mut puzzle_move_events: EventWriter<PuzzleAction>,
     mut app_exit_events: EventWriter<AppExit>,
 ) {
-    let mut puzzle_visibility = puzzle.single_mut();
-    if input.just_pressed(KeyCode::Space) {
-        *puzzle_visibility = match *puzzle_visibility {
-            Visibility::Hidden => Visibility::Visible,
-            Visibility::Visible => Visibility::Hidden,
-            Visibility::Inherited => panic!(),
-        };
-    }
     if input.just_pressed(KeyCode::A) || input.just_pressed(KeyCode::D) {
         puzzle_move_events.send(PuzzleAction::ActiveFlipX);
     }
@@ -95,6 +87,25 @@ fn test_inputs(
     }
     if input.just_pressed(KeyCode::Escape) {
         app_exit_events.send(AppExit);
+    }
+
+    // Handle display of the solution overlay pressing/releasing ControlLeft
+    // Beware that some kind of puzzle don't have a solution that can be shown
+    if input.just_pressed(KeyCode::ControlLeft) {
+        for mut solution in puzzle_solution.iter_mut() {
+            *solution = Visibility::Visible;
+        }
+        for mut tiles in puzzle_tiles.iter_mut() {
+            *tiles = Visibility::Hidden;
+        }
+    }
+    if input.just_released(KeyCode::ControlLeft) {
+        for mut solution in puzzle_solution.iter_mut() {
+            *solution = Visibility::Hidden;
+        }
+        for mut tiles in puzzle_tiles.iter_mut() {
+            *tiles = Visibility::Visible;
+        }
     }
 }
 

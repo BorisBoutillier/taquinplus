@@ -38,6 +38,15 @@ impl CwRotation {
             R370 => R180,
         }
     }
+    pub fn rotate_180(&self) -> Self {
+        use CwRotation::*;
+        match self {
+            R0 => R180,
+            R90 => R370,
+            R180 => R0,
+            R370 => R90,
+        }
+    }
 }
 #[derive(Debug)]
 pub struct Tile {
@@ -48,7 +57,7 @@ pub struct Tile {
     // Defines if this tile image is flipped on the Y axis compared to its initial state
     flipped_y: bool,
     // Defines the tile image clock-wise rotation compated to its initial state.
-    rotation: CwRotation,
+    pub rotation: CwRotation,
     // Defines the tile position within the original image.
     // This will always be (0,0) for a puzzle with type FromSeparateImage
     pub position: (usize, usize),
@@ -67,38 +76,15 @@ impl Tile {
         Quat::from_axis_angle(Vec3::Z, self.rotation.angle())
     }
     pub fn compute_mesh(&self, size: (usize, usize)) -> Mesh {
-        let incr_x = 1.0 / (size.1 as f32);
-        let incr_y = 1.0 / (size.0 as f32);
-        let mut uv_x1 = self.position.1 as f32 * incr_x;
-        let mut uv_x2 = (self.position.1 + 1) as f32 * incr_x;
-        let mut uv_y1 = (size.0 - 1 - self.position.0) as f32 * incr_y;
-        let mut uv_y2 = (size.0 - self.position.0) as f32 * incr_y;
-        if self.flipped_x {
-            (uv_x1, uv_x2) = (uv_x2, uv_x1);
-        }
-        if self.flipped_y {
-            (uv_y1, uv_y2) = (uv_y2, uv_y1);
-        }
-        let mut mesh = Mesh::from(shape::Cube::new(1.));
-        #[rustfmt::skip]
-            let uvs = vec![
-                // Assigning the UV coords for the top side.
-                [uv_x1, uv_y2], [uv_x2, uv_y2], [uv_x2, uv_y1], [uv_x1, uv_y1],
-                // Other sides are uniform color of 0,0 pixel
-                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
-                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
-                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
-                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
-                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
-            ];
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-        mesh
+        compute_tile_mesh(size, self.position, self.flipped_x, self.flipped_y)
     }
     pub fn flip_x(&mut self) {
         self.flipped_x = !self.flipped_x;
+        self.simplify();
     }
     pub fn flip_y(&mut self) {
         self.flipped_y = !self.flipped_y;
+        self.simplify();
     }
     pub fn is_flipped(&self) -> bool {
         self.flipped_x | self.flipped_y
@@ -112,4 +98,41 @@ impl Tile {
     pub fn is_rotated(&self) -> bool {
         self.rotation != CwRotation::R0
     }
+    pub fn simplify(&mut self) {
+        // flipX + flipY <=> 180 Rotation
+        if self.flipped_x && self.flipped_y {
+            self.flipped_x = false;
+            self.flipped_y = false;
+            self.rotation = self.rotation.rotate_180();
+        }
+    }
+}
+
+pub fn compute_tile_mesh(size: Coord, position: Coord, flipped_x: bool, flipped_y: bool) -> Mesh {
+    let incr_x = 1.0 / (size.1 as f32);
+    let incr_y = 1.0 / (size.0 as f32);
+    let mut uv_x1 = position.1 as f32 * incr_x;
+    let mut uv_x2 = (position.1 + 1) as f32 * incr_x;
+    let mut uv_y1 = (size.0 - 1 - position.0) as f32 * incr_y;
+    let mut uv_y2 = (size.0 - position.0) as f32 * incr_y;
+    if flipped_x {
+        (uv_x1, uv_x2) = (uv_x2, uv_x1);
+    }
+    if flipped_y {
+        (uv_y1, uv_y2) = (uv_y2, uv_y1);
+    }
+    let mut mesh = Mesh::from(shape::Cube::new(1.));
+    #[rustfmt::skip]
+            let uvs = vec![
+                // Assigning the UV coords for the top side.
+                [uv_x1, uv_y2], [uv_x2, uv_y2], [uv_x2, uv_y1], [uv_x1, uv_y1],
+                // Other sides are uniform color of 0,0 pixel
+                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
+                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
+                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
+                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
+                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
+            ];
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    mesh
 }
