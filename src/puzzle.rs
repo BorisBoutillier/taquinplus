@@ -24,10 +24,6 @@ pub struct Active(bool);
 
 #[derive(Resource)]
 pub struct PuzzleAssets {
-    #[allow(dead_code)]
-    tile_material: Handle<StandardMaterial>,
-    #[allow(dead_code)]
-    active_tile_material: Handle<StandardMaterial>,
     tile_scale: Vec3,
     active_tile_scale: Vec3,
 }
@@ -128,7 +124,6 @@ impl Puzzle {
                     incorrect_flip += 1;
                 }
                 if tile.is_rotated() {
-                    println!("Missed rotation {coord:?} : {:?}", tile.rotation);
                     incorrect_rotation += 1;
                 }
             }
@@ -192,17 +187,6 @@ impl Command for Puzzle {
                 .expect("No Resource Assets<StandardMaterial>");
             materials.add(StandardMaterial {
                 base_color_texture: Some(self.image.clone()),
-                reflectance: 0.0,
-                ..default()
-            })
-        };
-        let active_tile_material = {
-            let mut materials = world
-                .get_resource_mut::<Assets<StandardMaterial>>()
-                .expect("No Resource Assets<StandardMaterial>");
-            materials.add(StandardMaterial {
-                base_color_texture: Some(self.image.clone()),
-                emissive: Color::GRAY,
                 reflectance: 0.0,
                 ..default()
             })
@@ -293,8 +277,6 @@ impl Command for Puzzle {
             .add_child(puzzle_tiles);
         // Create the resource containing all the needed asset handles for the Puzzle
         world.insert_resource(PuzzleAssets {
-            active_tile_material,
-            tile_material,
             tile_scale,
             active_tile_scale,
         });
@@ -411,18 +393,16 @@ pub fn handle_puzzle_action_events(
 }
 
 pub fn active_tile(
-    mut tiles: Query<(&mut Handle<StandardMaterial>, &mut Transform, &Active), Changed<Active>>,
+    mut tiles: Query<(&mut Transform, &Active), Changed<Active>>,
     puzzle_assets: Option<Res<PuzzleAssets>>,
 ) {
-    for (mut _material, mut transform, active) in tiles.iter_mut() {
+    for (mut transform, active) in tiles.iter_mut() {
         let puzzle_assets = puzzle_assets
             .as_ref()
             .expect("No PuzzleAssets resource while tile entities with Active exists");
         if active.0 {
-            //*material = puzzle_assets.active_tile_material.clone();
             transform.scale = puzzle_assets.active_tile_scale;
         } else {
-            //*material = puzzle_assets.tile_material.clone();
             transform.scale = puzzle_assets.tile_scale;
         };
     }
