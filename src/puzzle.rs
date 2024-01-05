@@ -24,7 +24,9 @@ pub struct Active(bool);
 
 #[derive(Resource)]
 pub struct PuzzleAssets {
+    #[allow(dead_code)]
     tile_material: Handle<StandardMaterial>,
+    #[allow(dead_code)]
     active_tile_material: Handle<StandardMaterial>,
     tile_scale: Vec3,
     active_tile_scale: Vec3,
@@ -131,10 +133,6 @@ impl Puzzle {
                 }
             }
         }
-        println!(
-            "Tile errors: {} / {} / {}",
-            incorrect_placement, incorrect_flip, incorrect_rotation
-        );
         incorrect_placement == 0 && incorrect_flip == 0 && incorrect_rotation == 0
     }
     pub fn apply_move_event(&mut self, event: PuzzleAction) -> (Option<Entity>, Coord) {
@@ -416,7 +414,7 @@ pub fn active_tile(
     mut tiles: Query<(&mut Handle<StandardMaterial>, &mut Transform, &Active), Changed<Active>>,
     puzzle_assets: Option<Res<PuzzleAssets>>,
 ) {
-    for (mut material, mut transform, active) in tiles.iter_mut() {
+    for (mut _material, mut transform, active) in tiles.iter_mut() {
         let puzzle_assets = puzzle_assets
             .as_ref()
             .expect("No PuzzleAssets resource while tile entities with Active exists");

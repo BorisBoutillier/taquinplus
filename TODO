@@ -1,24 +1,47 @@
-. Add detection of finished puzzle.
 . Add showing of helpers:
-    Possibly to overlay solution with `CTRL`
-. Move Puzzle spawn as an `impl Command`
-. Update grid to use narray to reduce friction with row/column order
-. Support two type of puzzle source: One image, width/height,  N image + scoring.
-. Add puzzle conf:
-    . Image source,
-    . Size.
-    . Allow flipping/rotations.
-    . Allow random hole position.
-    . Level of helpers:
-        . Can see solutions positions
-        . Can ask for solutions.
+    Show outline based on tile error:
+       Red - incorrect placement
+       Orange - correct placement incorrect flip/rotation
+. Add animation of finished puzzle:
+    . tween to full image, scale to 1
 . Show currently active tile ( possible hole) :
-    . Surrounding outline ? Using debug lines ?
-. Add a scoring system:
-    . Number of actions ?
-    . Time for completions ? ( Requires start countdown)
-. Add animation ( removing padding) on finished puzzle.
+    . Surrounding outline ?
+    . Bloom ?
 . Add action animations, blending together:
     . Slides: X/Y movement
     . Flipping: 3d rotation.
     . Rotation: Up -> Rotate -> Down
+    
+. Test non fully orthographic cameras
+
+. Support two type of puzzle source:
+    . One Full Puzzle Image, width/height: These needs shuffling, solution is know to engine
+    . One image and value per tile,  total score. Brute force = size! * 7^size
+. Add a scoring system:
+    . Number of actions ?
+    . Time for completions ? ( Requires start countdown)
+
+. UI:
+    . Puzzle creation menu:
+        FromImage:
+        . Image choice
+        . difficulty choice:
+            . size 
+            . flips ? / rotation ?
+            . shuffling steps SMALL MEDIUM FULL
+            . Hole position: bottomRight / Random.
+        . Helper levels:
+            . None
+            . Solution overlay
+            . Tile state: (Red/orange)
+            . Solution steps.
+        FromPreComputed:
+            . Choice from an available list
+            . Each entry contains metadata with its information ( size, flips ? , rotation ? , random hole ?)
+            . No helper available.
+    . Puzzle in solving UI:
+        . Current score ?
+
+. Puzzle solver:
+    . For Puzzle with solutions, compute shortest steps to reach solution.
+      This is not the reverse of the shuffling steps, as best score can be lower.
