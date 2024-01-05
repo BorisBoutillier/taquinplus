@@ -1,5 +1,10 @@
+use std::time::Duration;
+
 use crate::prelude::*;
 use bevy::ecs::system::Command;
+use bevy_tweening::lens::TransformPositionLens;
+use bevy_tweening::lens::TransformRotationLens;
+use bevy_tweening::lens::TransformScaleLens;
 use grid::Grid;
 use rand::seq::SliceRandom;
 use rand::Rng;
@@ -24,8 +29,12 @@ pub struct Active(bool);
 
 #[derive(Resource)]
 pub struct PuzzleAssets {
+    // Default scale used by each tile
     tile_scale: Vec3,
+    // scale used by the active tile
     active_tile_scale: Vec3,
+    // scale used by each tile when the puzzle is solved
+    solved_tile_scale: Vec3,
 }
 
 #[derive(Component)]
@@ -34,6 +43,7 @@ pub struct Puzzle {
     pub active: Coord,
     pub hole: Coord,
     pub tiles: Grid<Option<Tile>>,
+    pub is_solved: bool,
 }
 impl Puzzle {
     pub fn new(image: Handle<Image>, width: usize, height: usize) -> Self {
@@ -59,6 +69,7 @@ impl Puzzle {
             active: hole,
             hole,
             tiles,
+            is_solved: false,
         }
     }
     pub fn get_active_tile_mut(&mut self) -> &mut Option<Tile> {
@@ -110,8 +121,9 @@ impl Puzzle {
         }
         // After a shuffle we want the active 'tile' to be the hole, not the last moved tiled during shuffling
         self.active = self.hole;
+        self.is_solved = false;
     }
-    pub fn is_solved(&self) -> bool {
+    pub fn compute_solved(&mut self) {
         let mut incorrect_placement = 0;
         let mut incorrect_flip = 0;
         let mut incorrect_rotation = 0;
@@ -128,10 +140,13 @@ impl Puzzle {
                 }
             }
         }
-        incorrect_placement == 0 && incorrect_flip == 0 && incorrect_rotation == 0
+        self.is_solved = incorrect_placement == 0 && incorrect_flip == 0 && incorrect_rotation == 0;
     }
     pub fn apply_move_event(&mut self, event: PuzzleAction) -> (Option<Entity>, Coord) {
         use PuzzleAction::*;
+        if self.is_solved {
+            warn!("Move event while puzzle is solved");
+        }
         let mut position = self.hole;
         let size = self.size();
         match event {
@@ -192,9 +207,15 @@ impl Command for Puzzle {
             })
         };
         let size = self.size();
-        let tile_scale = 0.93 / (size.0.max(size.1) as f32);
-        let tile_scale = Vec3::new(tile_scale, tile_scale, 5.);
+        let tile_scale = {
+            let scale = 0.93 / (size.0.max(size.1) as f32);
+            Vec3::new(scale, scale, 5.)
+        };
         let active_tile_scale = tile_scale * 1.05;
+        let solved_tile_scale = {
+            let scale = 1. / (size.0.max(size.1) as f32);
+            Vec3::new(scale, scale, 5.)
+        };
         let tile_transform = Transform::from_scale(tile_scale);
         let mut solution_tiles = vec![];
         self.tiles.indexed_iter_mut().for_each(|(index, tile)| {
@@ -279,6 +300,7 @@ impl Command for Puzzle {
         world.insert_resource(PuzzleAssets {
             tile_scale,
             active_tile_scale,
+            solved_tile_scale,
         });
     }
 }
@@ -311,6 +333,7 @@ impl PuzzleAction {
     }
 }
 
+const ACTION_ANIMATION_DURATION: u64 = 100;
 pub fn handle_puzzle_action_events(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -318,76 +341,113 @@ pub fn handle_puzzle_action_events(
     mut puzzles: Query<&mut Puzzle>,
     mut transforms: Query<&mut Transform>,
     mut actives: Query<&mut Active>,
+    puzzle_assets: Option<Res<PuzzleAssets>>,
 ) {
     use PuzzleAction::*;
     for event in events.read() {
         let mut puzzle = puzzles.single_mut();
-        let size = puzzle.tiles.size();
-        let prev_active_entity = {
-            let active = puzzle.active;
-            puzzle.get_tile_entity(active)
-        };
-        match event {
-            MoveLeft | MoveRight | MoveUp | MoveDown => {
-                let (entity, destination) = puzzle.apply_move_event(*event);
-                if let Some(entity) = entity {
-                    let mut tile_transform = transforms.get_mut(entity).expect("Oops");
-                    tile_transform.translation =
-                        tile_translation_from_position(destination, puzzle.tiles.size());
+        if !puzzle.is_solved {
+            let size = puzzle.tiles.size();
+            let prev_active_entity = {
+                let active = puzzle.active;
+                puzzle.get_tile_entity(active)
+            };
+            match event {
+                MoveLeft | MoveRight | MoveUp | MoveDown => {
+                    let (entity, destination) = puzzle.apply_move_event(*event);
+                    if let Some(entity) = entity {
+                        let cur_translation = transforms.get_mut(entity).expect("Oops").translation;
+                        let new_translation =
+                            tile_translation_from_position(destination, puzzle.tiles.size());
+                        let tween = Tween::new(
+                            EaseFunction::QuadraticInOut,
+                            Duration::from_millis(ACTION_ANIMATION_DURATION),
+                            TransformPositionLens {
+                                start: cur_translation,
+                                end: new_translation,
+                            },
+                        );
+                        commands.entity(entity).insert(Animator::new(tween));
+                    }
+                }
+                ActiveFlipX | ActiveFlipY => {
+                    if let Some(tile) = puzzle.get_active_tile_mut() {
+                        match event {
+                            ActiveFlipX => tile.flip_x(),
+                            ActiveFlipY => tile.flip_y(),
+                            _ => panic!(),
+                        }
+                        if let Some(entity) = tile.entity {
+                            let mesh = tile.compute_mesh(size);
+                            commands.entity(entity).insert(meshes.add(mesh));
+                            // Some Flipping state are replaced by a rotation
+                            let mut transform =
+                                transforms.get_mut(entity).expect("Tile has no transform");
+                            transform.rotation = tile.compute_rotation();
+                        }
+                    }
+                }
+                ActiveRotateCW | ActiveRotateCCW => {
+                    if let Some(tile) = puzzle.get_active_tile_mut() {
+                        match event {
+                            ActiveRotateCW => tile.rotate_cw(),
+                            ActiveRotateCCW => tile.rotate_ccw(),
+                            _ => panic!(),
+                        }
+                        if let Some(entity) = tile.entity {
+                            let cur_rotation = transforms.get_mut(entity).expect("Oops").rotation;
+                            let new_rotation = tile.compute_rotation();
+                            let tween = Tween::new(
+                                EaseFunction::QuadraticInOut,
+                                Duration::from_millis(ACTION_ANIMATION_DURATION),
+                                TransformRotationLens {
+                                    start: cur_rotation,
+                                    end: new_rotation,
+                                },
+                            );
+                            commands.entity(entity).insert(Animator::new(tween));
+                        }
+                    }
                 }
             }
-            ActiveFlipX | ActiveFlipY => {
-                if let Some(tile) = puzzle.get_active_tile_mut() {
-                    match event {
-                        ActiveFlipX => tile.flip_x(),
-                        ActiveFlipY => tile.flip_y(),
-                        _ => panic!(),
-                    }
+            let new_active_entity = {
+                let active = puzzle.active;
+                puzzle.get_tile_entity(active)
+            };
+            if prev_active_entity != new_active_entity {
+                if let Some(entity) = prev_active_entity {
+                    actives
+                        .get_mut(entity)
+                        .expect("A Tile Entity does not contains the Active component")
+                        .0 = false;
+                }
+                if let Some(entity) = new_active_entity {
+                    actives
+                        .get_mut(entity)
+                        .expect("A Tile Entity does not contains the Active component")
+                        .0 = true;
+                }
+            }
+            puzzle.compute_solved();
+            if puzzle.is_solved {
+                println!("SOLVED");
+                let puzzle_assets = puzzle_assets
+                    .as_ref()
+                    .expect("No PuzzleAssets resource while tile entities with Active exists");
+                for tile in puzzle.tiles.iter().filter_map(|tile| tile.as_ref()) {
                     if let Some(entity) = tile.entity {
-                        let mesh = tile.compute_mesh(size);
-                        commands.entity(entity).insert(meshes.add(mesh));
-                        // Some Flipping state are replaced by a rotation
-                        let mut transform =
-                            transforms.get_mut(entity).expect("Tile has no transform");
-                        transform.rotation = tile.compute_rotation();
+                        let tween = Tween::new(
+                            EaseFunction::QuadraticInOut,
+                            Duration::from_millis(500),
+                            TransformScaleLens {
+                                start: puzzle_assets.tile_scale,
+                                end: puzzle_assets.solved_tile_scale,
+                            },
+                        );
+                        commands.entity(entity).insert(Animator::new(tween));
                     }
                 }
             }
-            ActiveRotateCW | ActiveRotateCCW => {
-                if let Some(tile) = puzzle.get_active_tile_mut() {
-                    match event {
-                        ActiveRotateCW => tile.rotate_cw(),
-                        ActiveRotateCCW => tile.rotate_ccw(),
-                        _ => panic!(),
-                    }
-                    if let Some(entity) = tile.entity {
-                        let mut transform =
-                            transforms.get_mut(entity).expect("Tile has no transform");
-                        transform.rotation = tile.compute_rotation();
-                    }
-                }
-            }
-        }
-        let new_active_entity = {
-            let active = puzzle.active;
-            puzzle.get_tile_entity(active)
-        };
-        if prev_active_entity != new_active_entity {
-            if let Some(entity) = prev_active_entity {
-                actives
-                    .get_mut(entity)
-                    .expect("A Tile Entity does not contains the Active component")
-                    .0 = false;
-            }
-            if let Some(entity) = new_active_entity {
-                actives
-                    .get_mut(entity)
-                    .expect("A Tile Entity does not contains the Active component")
-                    .0 = true;
-            }
-        }
-        if puzzle.is_solved() {
-            println!("SOLVED");
         }
     }
 }

@@ -7,7 +7,8 @@
 . Show currently active tile ( possible hole) :
     . Surrounding outline ?
     . Bloom ?
-. Add action animations, blending together:
+. Move PuzzleAssets as a component on the Puzzle Entity
+. Add action animations, chained together:
     . Slides: X/Y movement
     . Flipping: 3d rotation.
     . Rotation: Up -> Rotate -> Down

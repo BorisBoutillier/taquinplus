@@ -2,6 +2,7 @@ use bevy::input::common_conditions::input_toggle_active;
 use bevy::window::WindowResized;
 use bevy::{app::AppExit, asset::AssetMetaCheck};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_tweening::TweeningPlugin;
 use rand::thread_rng;
 
 mod prelude;
@@ -23,6 +24,7 @@ fn main() {
         .add_plugins(
             WorldInspectorPlugin::default().run_if(input_toggle_active(false, KeyCode::Space)),
         )
+        .add_plugins(TweeningPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, test_inputs)
         .add_event::<PuzzleAction>()
@@ -45,7 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     });
     let mut puzzle = Puzzle::new(asset_server.load("images/1.png"), 5, 5);
-    puzzle.shuffle(5, 0.5, 0.5, &mut rng);
+    puzzle.shuffle(5, 0.0, 0.0, &mut rng);
     commands.add(puzzle);
 
     commands.insert_resource(AmbientLight {
