@@ -48,6 +48,7 @@ pub struct Puzzle {
 impl Puzzle {
     pub fn new(image: Handle<Image>, width: usize, height: usize) -> Self {
         let hole = (0, width - 1);
+        let puzzle_size = (height, width);
         let tiles = Grid::from_vec(
             (0..height)
                 .flat_map(|y| {
@@ -56,7 +57,7 @@ impl Puzzle {
                             if (y, x) == hole {
                                 None
                             } else {
-                                Some(Tile::new((y, x)))
+                                Some(Tile::new((y, x), puzzle_size))
                             }
                         })
                         .collect::<Vec<_>>()
@@ -225,13 +226,13 @@ impl Command for Puzzle {
                         .get_resource_mut::<Assets<Mesh>>()
                         .expect("No Resource Assets<Mesh>");
 
-                    meshes.add(tile.compute_mesh(size))
+                    meshes.add(tile.compute_mesh())
                 };
                 tile.entity = Some(
                     world
                         .spawn(PbrBundle {
                             material: tile_material.clone(),
-                            mesh: mesh.clone(),
+                            mesh,
                             transform: tile_transform
                                 .with_rotation(tile.compute_rotation())
                                 .with_translation(tile_translation_from_position(index, size)),
@@ -333,10 +334,9 @@ impl PuzzleAction {
     }
 }
 
-const ACTION_ANIMATION_DURATION: u64 = 100;
+const ACTION_ANIMATION_DURATION: u64 = 150;
 pub fn handle_puzzle_action_events(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
     mut events: EventReader<PuzzleAction>,
     mut puzzles: Query<&mut Puzzle>,
     mut transforms: Query<&mut Transform>,
@@ -347,7 +347,6 @@ pub fn handle_puzzle_action_events(
     for event in events.read() {
         let mut puzzle = puzzles.single_mut();
         if !puzzle.is_solved {
-            let size = puzzle.tiles.size();
             let prev_active_entity = {
                 let active = puzzle.active;
                 puzzle.get_tile_entity(active)
@@ -358,7 +357,7 @@ pub fn handle_puzzle_action_events(
                     if let Some(entity) = entity {
                         let cur_translation = transforms.get_mut(entity).expect("Oops").translation;
                         let new_translation =
-                            tile_translation_from_position(destination, puzzle.tiles.size());
+                            tile_translation_from_position(destination, puzzle.size());
                         let tween = Tween::new(
                             EaseFunction::QuadraticInOut,
                             Duration::from_millis(ACTION_ANIMATION_DURATION),
@@ -378,12 +377,20 @@ pub fn handle_puzzle_action_events(
                             _ => panic!(),
                         }
                         if let Some(entity) = tile.entity {
-                            let mesh = tile.compute_mesh(size);
-                            commands.entity(entity).insert(meshes.add(mesh));
                             // Some Flipping state are replaced by a rotation
                             let mut transform =
                                 transforms.get_mut(entity).expect("Tile has no transform");
                             transform.rotation = tile.compute_rotation();
+                            let tween = Tween::new(
+                                EaseFunction::QuadraticInOut,
+                                Duration::from_millis(ACTION_ANIMATION_DURATION),
+                                match event {
+                                    ActiveFlipX => MeshFlippingLens::new_flip_x(tile.clone()),
+                                    ActiveFlipY => MeshFlippingLens::new_flip_y(tile.clone()),
+                                    _ => panic!(),
+                                },
+                            );
+                            commands.entity(entity).insert(AssetAnimator::new(tween));
                         }
                     }
                 }

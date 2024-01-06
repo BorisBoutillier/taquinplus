@@ -1,17 +1,15 @@
+. BUGS:
+    . flip X then Y create an incorrect animation due to 'simplify'
+    . On puzzle solving, the last tile animation is stopped by the full puzzle solve animation
+
 . Add showing of helpers:
     Show outline based on tile error:
        Red - incorrect placement
        Orange - correct placement incorrect flip/rotation
-. Add animation of finished puzzle:
-    . tween to full image, scale to 1
 . Show currently active tile ( possible hole) :
     . Surrounding outline ?
     . Bloom ?
 . Move PuzzleAssets as a component on the Puzzle Entity
-. Add action animations, chained together:
-    . Slides: X/Y movement
-    . Flipping: 3d rotation.
-    . Rotation: Up -> Rotate -> Down
     
 . Test non fully orthographic cameras
 

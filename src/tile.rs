@@ -48,7 +48,7 @@ impl CwRotation {
         }
     }
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Tile {
     // When spawned, Bevy entity associated to this tile
     pub entity: Option<Entity>,
@@ -60,23 +60,31 @@ pub struct Tile {
     pub rotation: CwRotation,
     // Defines the tile position within the original image.
     // This will always be (0,0) for a puzzle with type FromSeparateImage
-    pub position: (usize, usize),
+    pub position: Coord,
+    // Defines the full size of the puzzle this tile is in.
+    pub puzzle_size: Coord,
 }
 impl Tile {
-    pub fn new(position: (usize, usize)) -> Tile {
+    pub fn new(position: Coord, puzzle_size: Coord) -> Tile {
         Tile {
             entity: None,
             flipped_x: false,
             flipped_y: false,
             rotation: CwRotation::R0,
             position,
+            puzzle_size,
         }
     }
     pub fn compute_rotation(&self) -> Quat {
         Quat::from_axis_angle(Vec3::Z, self.rotation.angle())
     }
-    pub fn compute_mesh(&self, size: (usize, usize)) -> Mesh {
-        compute_tile_mesh(size, self.position, self.flipped_x, self.flipped_y)
+    pub fn compute_mesh(&self) -> Mesh {
+        compute_tile_mesh(
+            self.puzzle_size,
+            self.position,
+            self.flipped_x,
+            self.flipped_y,
+        )
     }
     pub fn flip_x(&mut self) {
         self.flipped_x = !self.flipped_x;
@@ -109,6 +117,17 @@ impl Tile {
 }
 
 pub fn compute_tile_mesh(size: Coord, position: Coord, flipped_x: bool, flipped_y: bool) -> Mesh {
+    let mut mesh = Mesh::from(shape::Cube::new(1.));
+    set_tile_mesh_uvs(&mut mesh, size, position, flipped_x, flipped_y);
+    mesh
+}
+pub fn set_tile_mesh_uvs(
+    mesh: &mut Mesh,
+    size: Coord,
+    position: Coord,
+    flipped_x: bool,
+    flipped_y: bool,
+) {
     let incr_x = 1.0 / (size.1 as f32);
     let incr_y = 1.0 / (size.0 as f32);
     let mut uv_x1 = position.1 as f32 * incr_x;
@@ -121,18 +140,119 @@ pub fn compute_tile_mesh(size: Coord, position: Coord, flipped_x: bool, flipped_
     if flipped_y {
         (uv_y1, uv_y2) = (uv_y2, uv_y1);
     }
-    let mut mesh = Mesh::from(shape::Cube::new(1.));
     #[rustfmt::skip]
-            let uvs = vec![
-                // Assigning the UV coords for the top side.
-                [uv_x1, uv_y2], [uv_x2, uv_y2], [uv_x2, uv_y1], [uv_x1, uv_y1],
-                // Other sides are uniform color of 0,0 pixel
-                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
-                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
-                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
-                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
-                [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
-            ];
+    let uvs = vec![
+        // Assigning the UV coords for the top side.
+        [uv_x1, uv_y2], [uv_x2, uv_y2], [uv_x2, uv_y1], [uv_x1, uv_y1],
+        // Other sides are uniform color of 0,0 pixel
+        [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
+        [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
+        [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
+        [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
+        [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0],
+    ];
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-    mesh
+}
+
+pub fn set_tile_mesh_position(
+    mesh: &mut Mesh,
+    x_flipping_ratio: Option<f32>,
+    y_flipping_ratio: Option<f32>,
+) {
+    let (min_x, max_x) = {
+        let val = if let Some(ratio) = x_flipping_ratio {
+            (ratio - 0.5).abs()
+        } else {
+            0.5
+        };
+        (-val, val)
+    };
+    let (min_y, max_y) = {
+        let val = if let Some(ratio) = y_flipping_ratio {
+            (ratio - 0.5).abs()
+        } else {
+            0.5
+        };
+        (-val, val)
+    };
+    let min_z = -0.5;
+    let max_z = 0.5;
+    let positions = vec![
+        // Front
+        [min_x, min_y, max_z],
+        [max_x, min_y, max_z],
+        [max_x, max_y, max_z],
+        [min_x, max_y, max_z],
+        // Back
+        [min_x, max_y, min_z],
+        [max_x, max_y, min_z],
+        [max_x, min_y, min_z],
+        [min_x, min_y, min_z],
+        // Right
+        [max_x, min_y, min_z],
+        [max_x, max_y, min_z],
+        [max_x, max_y, max_z],
+        [max_x, min_y, max_z],
+        // Left
+        [min_x, min_y, max_z],
+        [min_x, max_y, max_z],
+        [min_x, max_y, min_z],
+        [min_x, min_y, min_z],
+        // Top
+        [max_x, max_y, min_z],
+        [min_x, max_y, min_z],
+        [min_x, max_y, max_z],
+        [max_x, max_y, max_z],
+        // Bottom
+        [max_x, min_y, max_z],
+        [min_x, min_y, max_z],
+        [min_x, min_y, min_z],
+        [max_x, min_y, min_z],
+    ];
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+}
+
+pub struct MeshFlippingLens {
+    pub tile: Tile,
+    pub flip_x: bool,
+    pub flip_y: bool,
+    pub flipped: bool,
+}
+impl MeshFlippingLens {
+    pub fn new_flip_x(tile: Tile) -> Self {
+        Self {
+            flip_x: true,
+            flip_y: false,
+            flipped: false,
+            tile,
+        }
+    }
+    pub fn new_flip_y(tile: Tile) -> Self {
+        Self {
+            flip_x: false,
+            flip_y: true,
+            flipped: false,
+            tile,
+        }
+    }
+}
+
+impl Lens<Mesh> for MeshFlippingLens {
+    fn lerp(&mut self, target: &mut Mesh, ratio: f32) {
+        if !self.flipped && ratio > 0.5 {
+            self.flipped = true;
+            set_tile_mesh_uvs(
+                target,
+                self.tile.puzzle_size,
+                self.tile.position,
+                self.tile.flipped_x,
+                self.tile.flipped_y,
+            );
+        }
+        set_tile_mesh_position(
+            target,
+            self.flip_x.then_some(ratio),
+            self.flip_y.then_some(ratio),
+        );
+    }
 }

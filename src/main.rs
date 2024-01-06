@@ -31,6 +31,7 @@ fn main() {
         .add_systems(Update, handle_puzzle_action_events)
         .add_systems(Update, update_puzzle_on_resize)
         .add_systems(Update, active_tile)
+        .add_systems(Update, asset_animator_system::<Mesh>)
         .run();
 }
 
