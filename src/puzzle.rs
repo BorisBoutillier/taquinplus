@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::time::Duration;
 
 use crate::prelude::*;
@@ -143,7 +144,7 @@ impl Puzzle {
         }
         self.is_solved = incorrect_placement == 0 && incorrect_flip == 0 && incorrect_rotation == 0;
     }
-    pub fn apply_move_event(&mut self, event: PuzzleAction) -> (Option<Entity>, Coord) {
+    pub fn apply_move_event(&mut self, event: PuzzleAction) -> (Option<Entity>, Coord, Coord) {
         use PuzzleAction::*;
         if self.is_solved {
             warn!("Move event while puzzle is solved");
@@ -163,9 +164,9 @@ impl Puzzle {
             let entity = tile.entity;
             self.tiles[destination] = Some(tile);
             self.hole = position;
-            (entity, destination)
+            (entity, destination, position)
         } else {
-            (None, position)
+            (None, position, position)
         }
     }
     fn get_valid_moves(&self) -> Vec<PuzzleAction> {
@@ -239,6 +240,7 @@ impl Command for Puzzle {
                             ..default()
                         })
                         .insert(Active(index == self.active))
+                        .insert(TileAnimationBundle::default())
                         .id(),
                 );
                 // Duplicate the tile to add to the PuzzleSolution at the real tile position
@@ -336,11 +338,10 @@ impl PuzzleAction {
 
 const ACTION_ANIMATION_DURATION: u64 = 150;
 pub fn handle_puzzle_action_events(
-    mut commands: Commands,
     mut events: EventReader<PuzzleAction>,
     mut puzzles: Query<&mut Puzzle>,
-    mut transforms: Query<&mut Transform>,
     mut actives: Query<&mut Active>,
+    mut tile_animations: Query<&mut TileAnimation>,
     puzzle_assets: Option<Res<PuzzleAssets>>,
 ) {
     use PuzzleAction::*;
@@ -353,20 +354,22 @@ pub fn handle_puzzle_action_events(
             };
             match event {
                 MoveLeft | MoveRight | MoveUp | MoveDown => {
-                    let (entity, destination) = puzzle.apply_move_event(*event);
+                    let (entity, destination, source) = puzzle.apply_move_event(*event);
                     if let Some(entity) = entity {
-                        let cur_translation = transforms.get_mut(entity).expect("Oops").translation;
-                        let new_translation =
+                        let start_translation =
+                            tile_translation_from_position(source, puzzle.size());
+                        let end_translation =
                             tile_translation_from_position(destination, puzzle.size());
                         let tween = Tween::new(
                             EaseFunction::QuadraticInOut,
                             Duration::from_millis(ACTION_ANIMATION_DURATION),
                             TransformPositionLens {
-                                start: cur_translation,
-                                end: new_translation,
+                                start: start_translation,
+                                end: end_translation,
                             },
                         );
-                        commands.entity(entity).insert(Animator::new(tween));
+                        let mut tile_animation = tile_animations.get_mut(entity).expect("Oops");
+                        tile_animation.push_transform_tween(tween);
                     }
                 }
                 ActiveFlipX | ActiveFlipY => {
@@ -386,29 +389,31 @@ pub fn handle_puzzle_action_events(
                                     _ => panic!(),
                                 },
                             );
-                            commands.entity(entity).insert(AssetAnimator::new(tween));
+                            let mut tile_animation = tile_animations.get_mut(entity).expect("Oops");
+                            tile_animation.push_mesh_tween(tween);
                         }
                     }
                 }
                 ActiveRotateCW | ActiveRotateCCW => {
                     if let Some(tile) = puzzle.get_active_tile_mut() {
+                        let start_rotation = tile.compute_rotation();
                         match event {
                             ActiveRotateCW => tile.rotate_cw(),
                             ActiveRotateCCW => tile.rotate_ccw(),
                             _ => panic!(),
                         }
                         if let Some(entity) = tile.entity {
-                            let cur_rotation = transforms.get_mut(entity).expect("Oops").rotation;
-                            let new_rotation = tile.compute_rotation();
+                            let end_rotation = tile.compute_rotation();
                             let tween = Tween::new(
                                 EaseFunction::QuadraticInOut,
                                 Duration::from_millis(ACTION_ANIMATION_DURATION),
                                 TransformRotationLens {
-                                    start: cur_rotation,
-                                    end: new_rotation,
+                                    start: start_rotation,
+                                    end: end_rotation,
                                 },
                             );
-                            commands.entity(entity).insert(Animator::new(tween));
+                            let mut tile_animation = tile_animations.get_mut(entity).expect("Oops");
+                            tile_animation.push_transform_tween(tween);
                         }
                     }
                 }
@@ -447,7 +452,8 @@ pub fn handle_puzzle_action_events(
                                 end: puzzle_assets.solved_tile_scale,
                             },
                         );
-                        commands.entity(entity).insert(Animator::new(tween));
+                        let mut tile_animation = tile_animations.get_mut(entity).expect("Oops");
+                        tile_animation.push_transform_tween(tween);
                     }
                 }
             }
@@ -468,5 +474,58 @@ pub fn active_tile(
         } else {
             transform.scale = puzzle_assets.tile_scale;
         };
+    }
+}
+
+#[derive(Component)]
+pub struct TileAnimation {
+    queue: VecDeque<(BoxedTweenable<Transform>, BoxedTweenable<Mesh>)>,
+}
+impl TileAnimation {
+    pub fn push_transform_tween(&mut self, tween: impl Tweenable<Transform> + 'static) {
+        let duration = tween.duration();
+        self.queue
+            .push_back((Box::new(tween), Box::new(Delay::new(duration))))
+    }
+    pub fn push_mesh_tween(&mut self, tween: impl Tweenable<Mesh> + 'static) {
+        let duration = tween.duration();
+        self.queue
+            .push_back((Box::new(Delay::new(duration)), Box::new(tween)))
+    }
+}
+#[derive(Bundle)]
+pub struct TileAnimationBundle {
+    tile_animator: TileAnimation,
+    transform_animator: Animator<Transform>,
+    mesh_animator: AssetAnimator<Mesh>,
+}
+impl Default for TileAnimationBundle {
+    fn default() -> Self {
+        Self {
+            tile_animator: TileAnimation {
+                queue: VecDeque::new(),
+            },
+            transform_animator: Animator::new(Delay::new(Duration::from_millis(1))),
+            mesh_animator: AssetAnimator::new(Delay::new(Duration::from_millis(1))),
+        }
+    }
+}
+
+pub fn tile_animation(
+    mut animations: Query<(
+        &mut TileAnimation,
+        &mut Animator<Transform>,
+        &mut AssetAnimator<Mesh>,
+    )>,
+) {
+    for (mut tile_animation, mut transform_animator, mut mesh_animator) in animations.iter_mut() {
+        if !tile_animation.queue.is_empty()
+            && transform_animator.tweenable().progress() >= 1.0
+            && mesh_animator.tweenable().progress() >= 1.0
+        {
+            let (transform_tween, mesh_tween) = tile_animation.queue.pop_front().unwrap();
+            transform_animator.set_tweenable(Sequence::new([transform_tween]));
+            mesh_animator.set_tweenable(Sequence::new([mesh_tween]));
+        }
     }
 }

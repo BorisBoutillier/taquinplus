@@ -1,5 +1,5 @@
 . BUGS:
-    . On puzzle solving, the last tile animation is stopped by the full puzzle solve animation
+    . Rotation90 -> FlipX  actually flip Y from user point of view
 
 . Add showing of helpers:
     Show outline based on tile error:
