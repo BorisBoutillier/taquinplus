@@ -1,5 +1,4 @@
 . BUGS:
-    . flip X then Y create an incorrect animation due to 'simplify'
     . On puzzle solving, the last tile animation is stopped by the full puzzle solve animation
 
 . Add showing of helpers:

@@ -377,10 +377,6 @@ pub fn handle_puzzle_action_events(
                             _ => panic!(),
                         }
                         if let Some(entity) = tile.entity {
-                            // Some Flipping state are replaced by a rotation
-                            let mut transform =
-                                transforms.get_mut(entity).expect("Tile has no transform");
-                            transform.rotation = tile.compute_rotation();
                             let tween = Tween::new(
                                 EaseFunction::QuadraticInOut,
                                 Duration::from_millis(ACTION_ANIMATION_DURATION),

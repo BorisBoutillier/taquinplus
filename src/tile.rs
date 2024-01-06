@@ -38,15 +38,6 @@ impl CwRotation {
             R370 => R180,
         }
     }
-    pub fn rotate_180(&self) -> Self {
-        use CwRotation::*;
-        match self {
-            R0 => R180,
-            R90 => R370,
-            R180 => R0,
-            R370 => R90,
-        }
-    }
 }
 #[derive(Debug, Clone)]
 pub struct Tile {
@@ -88,14 +79,12 @@ impl Tile {
     }
     pub fn flip_x(&mut self) {
         self.flipped_x = !self.flipped_x;
-        self.simplify();
     }
     pub fn flip_y(&mut self) {
         self.flipped_y = !self.flipped_y;
-        self.simplify();
     }
     pub fn is_flipped(&self) -> bool {
-        self.flipped_x | self.flipped_y
+        !self.is_correctly_oriented() && (self.flipped_x | self.flipped_y)
     }
     pub fn rotate_cw(&mut self) {
         self.rotation = self.rotation.rotate_cw();
@@ -104,15 +93,15 @@ impl Tile {
         self.rotation = self.rotation.rotate_ccw();
     }
     pub fn is_rotated(&self) -> bool {
-        self.rotation != CwRotation::R0
+        !self.is_correctly_oriented() && self.rotation != CwRotation::R0
     }
-    pub fn simplify(&mut self) {
-        // flipX + flipY <=> 180 Rotation
-        if self.flipped_x && self.flipped_y {
-            self.flipped_x = false;
-            self.flipped_y = false;
-            self.rotation = self.rotation.rotate_180();
-        }
+    // True if this tile is neither flipped nor rotated.
+    // This takes care of the of case of Flip X and Y and Rotated 180, which is an invariant
+    pub fn is_correctly_oriented(&self) -> bool {
+        matches!(
+            (self.flipped_x, self.flipped_y, self.rotation),
+            (false, false, CwRotation::R0) | (true, true, CwRotation::R180)
+        )
     }
 }
 
