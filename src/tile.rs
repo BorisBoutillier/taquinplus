@@ -8,7 +8,7 @@ pub enum CwRotation {
     R0,
     R90,
     R180,
-    R370,
+    R270,
 }
 impl CwRotation {
     pub fn angle(&self) -> f32 {
@@ -17,7 +17,7 @@ impl CwRotation {
             R0 => 0.,
             R90 => -FRAC_PI_2,
             R180 => PI,
-            R370 => FRAC_PI_2,
+            R270 => FRAC_PI_2,
         }
     }
     pub fn rotate_cw(&self) -> Self {
@@ -25,17 +25,17 @@ impl CwRotation {
         match self {
             R0 => R90,
             R90 => R180,
-            R180 => R370,
-            R370 => R0,
+            R180 => R270,
+            R270 => R0,
         }
     }
     pub fn rotate_ccw(&self) -> Self {
         use CwRotation::*;
         match self {
-            R0 => R370,
+            R0 => R270,
             R90 => R0,
             R180 => R90,
-            R370 => R180,
+            R270 => R180,
         }
     }
 }

@@ -374,7 +374,19 @@ pub fn handle_puzzle_action_events(
                 }
                 ActiveFlipX | ActiveFlipY => {
                     if let Some(tile) = puzzle.get_active_tile_mut() {
-                        match event {
+                        // Convert the X/Y user axis to the local tile axis, based on tile rotation
+                        let local_event = {
+                            use CwRotation::*;
+                            match tile.rotation {
+                                R0 | R180 => event,
+                                R90 | R270 => match event {
+                                    ActiveFlipX => &ActiveFlipY,
+                                    ActiveFlipY => &ActiveFlipX,
+                                    _ => panic!(),
+                                },
+                            }
+                        };
+                        match local_event {
                             ActiveFlipX => tile.flip_x(),
                             ActiveFlipY => tile.flip_y(),
                             _ => panic!(),
@@ -383,7 +395,7 @@ pub fn handle_puzzle_action_events(
                             let tween = Tween::new(
                                 EaseFunction::QuadraticInOut,
                                 Duration::from_millis(ACTION_ANIMATION_DURATION),
-                                match event {
+                                match local_event {
                                     ActiveFlipX => MeshFlippingLens::new_flip_x(tile.clone()),
                                     ActiveFlipY => MeshFlippingLens::new_flip_y(tile.clone()),
                                     _ => panic!(),
