@@ -7,7 +7,6 @@ use rand::thread_rng;
 
 mod prelude;
 mod puzzle;
-mod rect2d;
 mod tile;
 use crate::prelude::*;
 fn main() {
@@ -25,7 +24,6 @@ fn main() {
         .add_plugins(
             WorldInspectorPlugin::default().run_if(input_toggle_active(false, KeyCode::Space)),
         )
-        .add_plugins(MaterialPlugin::<Rect2dMaterial>::default())
         .add_plugins(TweeningPlugin)
         .add_plugins((OutlinePlugin, AutoGenerateOutlineNormalsPlugin))
         .add_systems(Startup, setup)
@@ -50,8 +48,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         transform: Transform::from_xyz(0.0, 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
-    let mut puzzle = Puzzle::new(asset_server.load("images/1.png"), 3, 3);
-    puzzle.shuffle(5, 0.0, 0.0, &mut rng);
+    let mut puzzle = Puzzle::new(asset_server.load("images/1.png"), 9, 9);
+    puzzle.shuffle(1000, 1., 1., &mut rng);
     commands.add(puzzle);
 
     commands.insert_resource(AmbientLight {
@@ -63,6 +61,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn test_inputs(
     mut puzzle_solution: Query<&mut Visibility, (With<PuzzleSolution>, Without<PuzzleTiles>)>,
     mut puzzle_tiles: Query<&mut Visibility, With<PuzzleTiles>>,
+    puzzle_assets: Res<PuzzleAssets>,
+    mut puzzle: Query<&mut Puzzle>,
+    mut outlines: Query<&mut OutlineVolume>,
     input: Res<Input<KeyCode>>,
     mut puzzle_move_events: EventWriter<PuzzleAction>,
     mut app_exit_events: EventWriter<AppExit>,
@@ -98,11 +99,14 @@ fn test_inputs(
     // Handle display of the solution overlay pressing/releasing ControlLeft
     // Beware that some kind of puzzle don't have a solution that can be shown
     if input.just_pressed(KeyCode::ControlLeft) {
-        for mut solution in puzzle_solution.iter_mut() {
-            *solution = Visibility::Visible;
-        }
-        for mut tiles in puzzle_tiles.iter_mut() {
-            *tiles = Visibility::Hidden;
+        let puzzle = puzzle.single();
+        if !puzzle.is_solved {
+            for mut solution in puzzle_solution.iter_mut() {
+                *solution = Visibility::Visible;
+            }
+            for mut tiles in puzzle_tiles.iter_mut() {
+                *tiles = Visibility::Hidden;
+            }
         }
     }
     if input.just_released(KeyCode::ControlLeft) {
@@ -112,6 +116,16 @@ fn test_inputs(
         for mut tiles in puzzle_tiles.iter_mut() {
             *tiles = Visibility::Visible;
         }
+    }
+    if input.just_pressed(KeyCode::ShiftLeft) {
+        let mut puzzle = puzzle.single_mut();
+        puzzle.show_errors = true;
+        puzzle.show_outlines(&mut outlines, puzzle_assets.as_ref());
+    }
+    if input.just_released(KeyCode::ShiftLeft) {
+        let mut puzzle = puzzle.single_mut();
+        puzzle.show_errors = false;
+        puzzle.show_outlines(&mut outlines, puzzle_assets.as_ref());
     }
 }
 

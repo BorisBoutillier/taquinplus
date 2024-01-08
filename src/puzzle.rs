@@ -34,6 +34,12 @@ pub struct PuzzleAssets {
     tile_scale: Vec3,
     // scale used by each tile when the puzzle is solved
     solved_tile_scale: Vec3,
+    // Color of the tile outline when the tile is misplaced
+    outline_color_misplaced: Color,
+    // Color of the tile outline when the tile is misoriented
+    outline_color_misoriented: Color,
+    // Color of the tile outline when the tile is the active tile
+    outline_color_active: Color,
 }
 
 #[derive(Component)]
@@ -43,6 +49,7 @@ pub struct Puzzle {
     pub hole: Coord,
     pub tiles: Grid<Option<Tile>>,
     pub is_solved: bool,
+    pub show_errors: bool,
     pub hole_entity: Option<Entity>,
 }
 impl Puzzle {
@@ -71,6 +78,7 @@ impl Puzzle {
             hole,
             tiles,
             is_solved: false,
+            show_errors: false,
             hole_entity: None,
         }
     }
@@ -78,12 +86,6 @@ impl Puzzle {
         self.tiles
             .get_mut(self.active.0, self.active.1)
             .expect("Invalid Active tile")
-    }
-    pub fn get_tile_entity(&mut self, position: Coord) -> Option<Entity> {
-        self.tiles
-            .get(position.0, position.1)
-            .and_then(|tile| tile.as_ref())
-            .and_then(|tile| tile.entity)
     }
     pub fn size(&self) -> Coord {
         self.tiles.size()
@@ -186,6 +188,37 @@ impl Puzzle {
             actions.push(MoveLeft);
         }
         actions
+    }
+    pub fn show_outlines(
+        &mut self,
+        outlines: &mut Query<&mut OutlineVolume>,
+        assets: &PuzzleAssets,
+    ) {
+        self.tiles.indexed_iter_mut().for_each(|(index, tile)| {
+            if let Some(tile) = tile {
+                if let Some(entity) = tile.entity {
+                    if let Ok(mut outline) = outlines.get_mut(entity) {
+                        let show_misplaced = self.show_errors && index != tile.position;
+                        let show_misoriented = self.show_errors && !tile.is_correctly_oriented();
+                        let show_active =
+                            self.active == index && !show_misoriented && !show_misplaced;
+                        outline.visible =
+                            !self.is_solved && (show_active || show_misplaced || show_misoriented);
+                        outline.colour = match (show_misplaced, show_misoriented) {
+                            (true, _) => assets.outline_color_misplaced,
+                            (_, true) => assets.outline_color_misoriented,
+                            _ => assets.outline_color_active,
+                        };
+                        outline.width = if show_active { 1.0 } else { 2.0 };
+                    }
+                }
+            }
+        });
+        if let Some(entity) = self.hole_entity {
+            if let Ok(mut outline) = outlines.get_mut(entity) {
+                outline.visible = self.hole == self.active;
+            }
+        }
     }
 }
 fn tile_translation_from_position(position: (usize, usize), size: (usize, usize)) -> Vec3 {
@@ -299,6 +332,7 @@ impl Command for Puzzle {
                 "Hole_Ref_{}x{}",
                 self.hole.1, self.hole.0
             )))
+            .insert(TileAnimationBundle::default())
             .insert(OutlineBundle {
                 outline: OutlineVolume {
                     visible: true,
@@ -347,6 +381,9 @@ impl Command for Puzzle {
         world.insert_resource(PuzzleAssets {
             tile_scale,
             solved_tile_scale,
+            outline_color_active: Color::WHITE,
+            outline_color_misoriented: Color::ORANGE,
+            outline_color_misplaced: Color::RED,
         });
     }
 }
@@ -386,11 +423,17 @@ pub fn handle_puzzle_action_events(
     mut puzzles: Query<&mut Puzzle>,
     mut transforms: Query<&mut Transform>,
     mut tile_animations: Query<&mut TileAnimation>,
+    mut outlines: Query<&mut OutlineVolume>,
     puzzle_assets: Option<Res<PuzzleAssets>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     use PuzzleAction::*;
     for event in events.read() {
         let mut puzzle = puzzles.single_mut();
+        let puzzle_assets = puzzle_assets
+            .as_ref()
+            .expect("No PuzzleAssets resource while tile entities with Active exists");
         if !puzzle.is_solved {
             match event {
                 MoveLeft | MoveRight | MoveUp | MoveDown => {
@@ -481,9 +524,6 @@ pub fn handle_puzzle_action_events(
             puzzle.compute_solved();
             if puzzle.is_solved {
                 println!("SOLVED");
-                let puzzle_assets = puzzle_assets
-                    .as_ref()
-                    .expect("No PuzzleAssets resource while tile entities with Active exists");
                 for tile in puzzle.tiles.iter().filter_map(|tile| tile.as_ref()) {
                     if let Some(entity) = tile.entity {
                         let tween = Tween::new(
@@ -498,7 +538,31 @@ pub fn handle_puzzle_action_events(
                         tile_animation.push_transform_tween(tween);
                     }
                 }
+                let final_mesh =
+                    meshes.add(compute_tile_mesh(puzzle.size(), puzzle.hole, false, false));
+                let final_material = materials.add(StandardMaterial {
+                    base_color_texture: Some(puzzle.image.clone()),
+                    reflectance: 0.0,
+                    ..default()
+                });
+                if let Some(entity) = puzzle.hole_entity {
+                    commands
+                        .entity(entity)
+                        .insert(final_mesh)
+                        .insert(final_material);
+                    let tween = Tween::new(
+                        EaseFunction::QuadraticInOut,
+                        Duration::from_millis(500),
+                        TransformScaleLens {
+                            start: Vec3::new(0.0, 0.0, puzzle_assets.tile_scale.z),
+                            end: puzzle_assets.solved_tile_scale,
+                        },
+                    );
+                    let mut tile_animation = tile_animations.get_mut(entity).expect("Oops");
+                    tile_animation.push_transform_tween(tween);
+                }
             }
+            puzzle.show_outlines(&mut outlines, puzzle_assets)
         }
     }
 }
