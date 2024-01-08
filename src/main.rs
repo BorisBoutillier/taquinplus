@@ -7,6 +7,7 @@ use rand::thread_rng;
 
 mod prelude;
 mod puzzle;
+mod rect2d;
 mod tile;
 use crate::prelude::*;
 fn main() {
@@ -24,13 +25,13 @@ fn main() {
         .add_plugins(
             WorldInspectorPlugin::default().run_if(input_toggle_active(false, KeyCode::Space)),
         )
+        .add_plugins(MaterialPlugin::<Rect2dMaterial>::default())
         .add_plugins(TweeningPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, test_inputs)
         .add_event::<PuzzleAction>()
         .add_systems(Update, handle_puzzle_action_events)
         .add_systems(Update, update_puzzle_on_resize)
-        .add_systems(Update, active_tile)
         .add_systems(Update, asset_animator_system::<Mesh>)
         .add_systems(Update, tile_animation)
         .run();
@@ -48,7 +49,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         transform: Transform::from_xyz(0.0, 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
-    let mut puzzle = Puzzle::new(asset_server.load("images/1.png"), 5, 5);
+    let mut puzzle = Puzzle::new(asset_server.load("images/1.png"), 3, 3);
     puzzle.shuffle(5, 0.0, 0.0, &mut rng);
     commands.add(puzzle);
 

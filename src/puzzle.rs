@@ -32,8 +32,6 @@ pub struct Active(bool);
 pub struct PuzzleAssets {
     // Default scale used by each tile
     tile_scale: Vec3,
-    // scale used by the active tile
-    active_tile_scale: Vec3,
     // scale used by each tile when the puzzle is solved
     solved_tile_scale: Vec3,
 }
@@ -45,6 +43,7 @@ pub struct Puzzle {
     pub hole: Coord,
     pub tiles: Grid<Option<Tile>>,
     pub is_solved: bool,
+    pub active_outline_entity: Option<Entity>,
 }
 impl Puzzle {
     pub fn new(image: Handle<Image>, width: usize, height: usize) -> Self {
@@ -72,6 +71,7 @@ impl Puzzle {
             hole,
             tiles,
             is_solved: false,
+            active_outline_entity: None,
         }
     }
     pub fn get_active_tile_mut(&mut self) -> &mut Option<Tile> {
@@ -213,7 +213,6 @@ impl Command for Puzzle {
             let scale = 0.93 / (size.0.max(size.1) as f32);
             Vec3::new(scale, scale, 5.)
         };
-        let active_tile_scale = tile_scale * 1.05;
         let solved_tile_scale = {
             let scale = 1. / (size.0.max(size.1) as f32);
             Vec3::new(scale, scale, 5.)
@@ -239,8 +238,8 @@ impl Command for Puzzle {
                                 .with_translation(tile_translation_from_position(index, size)),
                             ..default()
                         })
-                        .insert(Active(index == self.active))
                         .insert(TileAnimationBundle::default())
+                        .insert(Name::new(format!("Tile_Ref_{}x{}", index.1, index.0)))
                         .id(),
                 );
                 // Duplicate the tile to add to the PuzzleSolution at the real tile position
@@ -279,7 +278,6 @@ impl Command for Puzzle {
             .insert(PuzzleSolution)
             .id();
         // Spawn the puzzle tiles parent
-        // Spawn the main puzzle
         let puzzle_tiles = world
             .spawn(SpatialBundle::default())
             .push_children(
@@ -292,17 +290,52 @@ impl Command for Puzzle {
             .insert(Name::new("Tiles"))
             .insert(PuzzleTiles)
             .id();
-        // Spawn the puzzle entity, with solution and tiles children
+        // Spawn the active outline entity, that outlines the active tile
+        let active_outline_entity = {
+            let mesh = {
+                let mut meshes = world
+                    .get_resource_mut::<Assets<Mesh>>()
+                    .expect("No Resource Assets<Mesh>");
+
+                meshes.add(Mesh::from(Rect2d {
+                    x_length: 1.,
+                    y_length: 1.,
+                }))
+            };
+            let material = {
+                let mut materials = world
+                    .get_resource_mut::<Assets<Rect2dMaterial>>()
+                    .expect("No Resource Assets<Rect2Material>");
+
+                materials.add(Rect2dMaterial {
+                    color: Color::WHITE,
+                })
+            };
+
+            assert_eq!(self.hole, self.active);
+            world
+                .spawn(MaterialMeshBundle {
+                    mesh,
+                    material,
+                    ..default()
+                })
+                .insert(Visibility::Hidden)
+                .insert(Name::new("ActiveOutline"))
+                .id()
+        };
+        self.active_outline_entity = Some(active_outline_entity);
+
+        // Spawn the puzzle main entity, with solution and tiles children
         world
             .spawn(SpatialBundle::default())
             .insert(Name::new("Puzzle"))
             .insert(self)
             .add_child(puzzle_solution)
-            .add_child(puzzle_tiles);
+            .add_child(puzzle_tiles)
+            .add_child(active_outline_entity);
         // Create the resource containing all the needed asset handles for the Puzzle
         world.insert_resource(PuzzleAssets {
             tile_scale,
-            active_tile_scale,
             solved_tile_scale,
         });
     }
@@ -338,9 +371,9 @@ impl PuzzleAction {
 
 const ACTION_ANIMATION_DURATION: u64 = 150;
 pub fn handle_puzzle_action_events(
+    mut commands: Commands,
     mut events: EventReader<PuzzleAction>,
     mut puzzles: Query<&mut Puzzle>,
-    mut actives: Query<&mut Active>,
     mut tile_animations: Query<&mut TileAnimation>,
     puzzle_assets: Option<Res<PuzzleAssets>>,
 ) {
@@ -348,10 +381,6 @@ pub fn handle_puzzle_action_events(
     for event in events.read() {
         let mut puzzle = puzzles.single_mut();
         if !puzzle.is_solved {
-            let prev_active_entity = {
-                let active = puzzle.active;
-                puzzle.get_tile_entity(active)
-            };
             match event {
                 MoveLeft | MoveRight | MoveUp | MoveDown => {
                     let (entity, destination, source) = puzzle.apply_move_event(*event);
@@ -430,23 +459,16 @@ pub fn handle_puzzle_action_events(
                     }
                 }
             }
-            let new_active_entity = {
-                let active = puzzle.active;
-                puzzle.get_tile_entity(active)
-            };
-            if prev_active_entity != new_active_entity {
-                if let Some(entity) = prev_active_entity {
-                    actives
-                        .get_mut(entity)
-                        .expect("A Tile Entity does not contains the Active component")
-                        .0 = false;
-                }
-                if let Some(entity) = new_active_entity {
-                    actives
-                        .get_mut(entity)
-                        .expect("A Tile Entity does not contains the Active component")
-                        .0 = true;
-                }
+            // Reparent the active_outline to the current active tile entity.
+            let active = puzzle.active;
+            if let Some(tile_entity) = puzzle.get_tile_entity(active) {
+                let active_outline_entity = puzzle
+                    .active_outline_entity
+                    .expect("No Active outline entity whle there is an active tile entity.");
+                commands
+                    .entity(active_outline_entity)
+                    .insert(Visibility::Inherited)
+                    .set_parent(tile_entity);
             }
             puzzle.compute_solved();
             if puzzle.is_solved {
@@ -468,24 +490,12 @@ pub fn handle_puzzle_action_events(
                         tile_animation.push_transform_tween(tween);
                     }
                 }
+                // Hide the active outline when solved.
+                if let Some(entity) = puzzle.active_outline_entity {
+                    commands.entity(entity).insert(Visibility::Hidden);
+                }
             }
         }
-    }
-}
-
-pub fn active_tile(
-    mut tiles: Query<(&mut Transform, &Active), Changed<Active>>,
-    puzzle_assets: Option<Res<PuzzleAssets>>,
-) {
-    for (mut transform, active) in tiles.iter_mut() {
-        let puzzle_assets = puzzle_assets
-            .as_ref()
-            .expect("No PuzzleAssets resource while tile entities with Active exists");
-        if active.0 {
-            transform.scale = puzzle_assets.active_tile_scale;
-        } else {
-            transform.scale = puzzle_assets.tile_scale;
-        };
     }
 }
 
