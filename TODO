@@ -1,22 +1,18 @@
 . BUGS:
-    -
-. Add showing of helpers:
-    Show outline based on tile error:
-       Red - incorrect placement
-       Orange - correct placement incorrect flip/rotation
-. Show currently active tile ( possible hole) :
-    . Surrounding outline ?
-    . Bloom ?
-. Move PuzzleAssets as a component on the Puzzle Entity
+    . Correctly support display EVEN size puzzles.
     
-. Test non fully orthographic cameras
-
-. Support two type of puzzle source:
-    . One Full Puzzle Image, width/height: These needs shuffling, solution is know to engine
-    . One image and value per tile,  total score. Brute force = size! * 7^size
-. Add a scoring system:
-    . Number of actions ?
-    . Time for completions ? ( Requires start countdown)
+. IMPROVEMNTS:
+    . Add proper support for non-square puzzles.
+    . Test using a Violet outline to show misplaced+misoriented
+    . Move PuzzleAssets as a component on the Puzzle Entity
+    . Check how to improve separation between inherant puzzle content and display content.
+    
+. FEATURES:
+    . Add scoring, at minimum the total number of actions, and a completion time.
+    . Add a countdown to start ( bluring the puzzle ?), necessary for completion time scoring.
+    . Add support for non-solvable puzzle, provided as an array of image and score, and a final score.
+    . Add a puzzle solver, than it run after the shuffling. Should reach minimal actions, so as to allow the user to compare.
+    . Add solving viewer.
 
 . UI:
     . Puzzle creation menu:
@@ -38,7 +34,3 @@
             . No helper available.
     . Puzzle in solving UI:
         . Current score ?
-
-. Puzzle solver:
-    . For Puzzle with solutions, compute shortest steps to reach solution.
-      This is not the reverse of the shuffling steps, as best score can be lower.
