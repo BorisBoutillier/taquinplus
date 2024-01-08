@@ -808,6 +808,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_mod_outline"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0241b06b1e994d678c1e7550d923fc756c9f0f928d9339d53506742f11cce2df"
+dependencies = [
+ "bevy",
+ "bitfield",
+ "interpolation",
+ "thiserror",
+ "wgpu-types",
+]
+
+[[package]]
 name = "bevy_pbr"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1184,6 +1197,12 @@ name = "bit-vec"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
+
+[[package]]
+name = "bitfield"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d7e60934ceec538daadb9d8432424ed043a904d8e0243f3c6446bce549a46ac"
 
 [[package]]
 name = "bitflags"
@@ -3365,6 +3384,7 @@ version = "0.0.1"
 dependencies = [
  "bevy",
  "bevy-inspector-egui",
+ "bevy_mod_outline",
  "bevy_tweening",
  "grid 0.13.0",
  "rand",

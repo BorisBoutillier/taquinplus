@@ -43,7 +43,7 @@ pub struct Puzzle {
     pub hole: Coord,
     pub tiles: Grid<Option<Tile>>,
     pub is_solved: bool,
-    pub active_outline_entity: Option<Entity>,
+    pub hole_entity: Option<Entity>,
 }
 impl Puzzle {
     pub fn new(image: Handle<Image>, width: usize, height: usize) -> Self {
@@ -71,7 +71,7 @@ impl Puzzle {
             hole,
             tiles,
             is_solved: false,
-            active_outline_entity: None,
+            hole_entity: None,
         }
     }
     pub fn get_active_tile_mut(&mut self) -> &mut Option<Tile> {
@@ -240,6 +240,14 @@ impl Command for Puzzle {
                         })
                         .insert(TileAnimationBundle::default())
                         .insert(Name::new(format!("Tile_Ref_{}x{}", index.1, index.0)))
+                        .insert(OutlineBundle {
+                            outline: OutlineVolume {
+                                visible: false,
+                                width: 2.0,
+                                colour: Color::WHITE,
+                            },
+                            ..default()
+                        })
                         .id(),
                 );
                 // Duplicate the tile to add to the PuzzleSolution at the real tile position
@@ -265,6 +273,42 @@ impl Command for Puzzle {
                 );
             }
         });
+        // Spawn the hole entity
+        let hole_material = {
+            let mut materials = world
+                .get_resource_mut::<Assets<StandardMaterial>>()
+                .expect("No Resource Assets<StandardMaterial>");
+            materials.add(Color::rgba(1.0, 1.0, 1.0, 0.0).into())
+        };
+        let hole_mesh = {
+            let mut meshes = world
+                .get_resource_mut::<Assets<Mesh>>()
+                .expect("No Resource Assets<Mesh>");
+
+            meshes.add(Mesh::from(shape::Cube::new(1.0)))
+        };
+        let hole_entity = world
+            .spawn(PbrBundle {
+                material: hole_material,
+                mesh: hole_mesh,
+                transform: tile_transform
+                    .with_translation(tile_translation_from_position(self.hole, size)),
+                ..default()
+            })
+            .insert(Name::new(format!(
+                "Hole_Ref_{}x{}",
+                self.hole.1, self.hole.0
+            )))
+            .insert(OutlineBundle {
+                outline: OutlineVolume {
+                    visible: true,
+                    width: 2.0,
+                    colour: Color::WHITE,
+                },
+                ..default()
+            })
+            .id();
+        self.hole_entity = Some(hole_entity);
         // Spawn the puzzle solution parent
         let puzzle_solution = world
             .spawn(SpatialBundle {
@@ -287,43 +331,10 @@ impl Command for Puzzle {
                     .filter_map(|tile| tile.as_ref().and_then(|tile| tile.entity))
                     .collect::<Vec<_>>(),
             )
+            .add_child(hole_entity)
             .insert(Name::new("Tiles"))
             .insert(PuzzleTiles)
             .id();
-        // Spawn the active outline entity, that outlines the active tile
-        let active_outline_entity = {
-            let mesh = {
-                let mut meshes = world
-                    .get_resource_mut::<Assets<Mesh>>()
-                    .expect("No Resource Assets<Mesh>");
-
-                meshes.add(Mesh::from(Rect2d {
-                    x_length: 1.,
-                    y_length: 1.,
-                }))
-            };
-            let material = {
-                let mut materials = world
-                    .get_resource_mut::<Assets<Rect2dMaterial>>()
-                    .expect("No Resource Assets<Rect2Material>");
-
-                materials.add(Rect2dMaterial {
-                    color: Color::WHITE,
-                })
-            };
-
-            assert_eq!(self.hole, self.active);
-            world
-                .spawn(MaterialMeshBundle {
-                    mesh,
-                    material,
-                    ..default()
-                })
-                .insert(Visibility::Hidden)
-                .insert(Name::new("ActiveOutline"))
-                .id()
-        };
-        self.active_outline_entity = Some(active_outline_entity);
 
         // Spawn the puzzle main entity, with solution and tiles children
         world
@@ -331,8 +342,7 @@ impl Command for Puzzle {
             .insert(Name::new("Puzzle"))
             .insert(self)
             .add_child(puzzle_solution)
-            .add_child(puzzle_tiles)
-            .add_child(active_outline_entity);
+            .add_child(puzzle_tiles);
         // Create the resource containing all the needed asset handles for the Puzzle
         world.insert_resource(PuzzleAssets {
             tile_scale,
@@ -374,6 +384,7 @@ pub fn handle_puzzle_action_events(
     mut commands: Commands,
     mut events: EventReader<PuzzleAction>,
     mut puzzles: Query<&mut Puzzle>,
+    mut transforms: Query<&mut Transform>,
     mut tile_animations: Query<&mut TileAnimation>,
     puzzle_assets: Option<Res<PuzzleAssets>>,
 ) {
@@ -399,6 +410,14 @@ pub fn handle_puzzle_action_events(
                         );
                         let mut tile_animation = tile_animations.get_mut(entity).expect("Oops");
                         tile_animation.push_transform_tween(tween);
+                    }
+                    let hole = puzzle.hole;
+                    let size = puzzle.size();
+                    if let Some(hole_entity) = puzzle.hole_entity {
+                        let mut transform = transforms
+                            .get_mut(hole_entity)
+                            .expect("No Transform for the hole entity");
+                        transform.translation = tile_translation_from_position(hole, size)
                     }
                 }
                 ActiveFlipX | ActiveFlipY => {
@@ -459,17 +478,6 @@ pub fn handle_puzzle_action_events(
                     }
                 }
             }
-            // Reparent the active_outline to the current active tile entity.
-            let active = puzzle.active;
-            if let Some(tile_entity) = puzzle.get_tile_entity(active) {
-                let active_outline_entity = puzzle
-                    .active_outline_entity
-                    .expect("No Active outline entity whle there is an active tile entity.");
-                commands
-                    .entity(active_outline_entity)
-                    .insert(Visibility::Inherited)
-                    .set_parent(tile_entity);
-            }
             puzzle.compute_solved();
             if puzzle.is_solved {
                 println!("SOLVED");
@@ -489,10 +497,6 @@ pub fn handle_puzzle_action_events(
                         let mut tile_animation = tile_animations.get_mut(entity).expect("Oops");
                         tile_animation.push_transform_tween(tween);
                     }
-                }
-                // Hide the active outline when solved.
-                if let Some(entity) = puzzle.active_outline_entity {
-                    commands.entity(entity).insert(Visibility::Hidden);
                 }
             }
         }

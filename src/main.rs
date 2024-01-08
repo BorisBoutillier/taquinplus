@@ -27,6 +27,7 @@ fn main() {
         )
         .add_plugins(MaterialPlugin::<Rect2dMaterial>::default())
         .add_plugins(TweeningPlugin)
+        .add_plugins((OutlinePlugin, AutoGenerateOutlineNormalsPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, test_inputs)
         .add_event::<PuzzleAction>()

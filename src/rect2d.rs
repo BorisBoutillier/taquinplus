@@ -12,31 +12,6 @@ use bevy::{
         },
     },
 };
-//fn setup(
-//    mut commands: Commands,
-//    mut meshes: ResMut<Assets<Mesh>>,
-//    mut materials: ResMut<Assets<Rect2dMaterial>>,
-//) {
-//    // Spawn a line strip that goes from point to point
-//    commands.spawn(MaterialMeshBundle {
-//        mesh: meshes.add(Mesh::from(LineStrip {
-//            points: vec![
-//                Vec3::ZERO,
-//                Vec3::new(1.0, 1.0, 0.0),
-//                Vec3::new(1.0, 0.0, 0.0),
-//            ],
-//        })),
-//        transform: Transform::from_xyz(0.5, 0.0, 0.0),
-//        material: materials.add(Rect2dMaterial { color: Color::BLUE }),
-//        ..default()
-//    });
-//
-//    // camera
-//    commands.spawn(Camera3dBundle {
-//        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-//        ..default()
-//    });
-//}
 
 #[derive(Asset, TypePath, Default, AsBindGroup, Debug, Clone)]
 pub struct Rect2dMaterial {
