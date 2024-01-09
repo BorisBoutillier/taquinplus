@@ -26,7 +26,7 @@ fn main() {
             ..default()
         }))
         .add_plugins(
-            WorldInspectorPlugin::default().run_if(input_toggle_active(false, KeyCode::Space)),
+            WorldInspectorPlugin::default().run_if(input_toggle_active(false, KeyCode::F12)),
         )
         .add_plugins(TweeningPlugin)
         .add_plugins((OutlinePlugin, AutoGenerateOutlineNormalsPlugin))
@@ -154,22 +154,39 @@ fn test_inputs(
         puzzle_move_events.send(PuzzleAction::ActiveRotateCW);
     }
     if input.just_pressed(KeyCode::Right) {
-        puzzle_move_events.send(PuzzleAction::MoveRight);
+        if input.pressed(KeyCode::ShiftLeft) {
+            puzzle_move_events.send(PuzzleAction::MoveActiveRight);
+        } else {
+            puzzle_move_events.send(PuzzleAction::MoveRight);
+        }
     }
     if input.just_pressed(KeyCode::Left) {
-        puzzle_move_events.send(PuzzleAction::MoveLeft);
+        if input.pressed(KeyCode::ShiftLeft) {
+            puzzle_move_events.send(PuzzleAction::MoveActiveLeft);
+        } else {
+            puzzle_move_events.send(PuzzleAction::MoveLeft);
+        }
     }
     if input.just_pressed(KeyCode::Up) {
-        puzzle_move_events.send(PuzzleAction::MoveUp);
+        if input.pressed(KeyCode::ShiftLeft) {
+            puzzle_move_events.send(PuzzleAction::MoveActiveUp);
+        } else {
+            puzzle_move_events.send(PuzzleAction::MoveUp);
+        }
     }
     if input.just_pressed(KeyCode::Down) {
-        puzzle_move_events.send(PuzzleAction::MoveDown);
+        if input.pressed(KeyCode::ShiftLeft) {
+            puzzle_move_events.send(PuzzleAction::MoveActiveDown);
+        } else {
+            puzzle_move_events.send(PuzzleAction::MoveDown);
+        }
     }
+    #[cfg(not(target_family = "wasm"))]
     if input.just_pressed(KeyCode::Escape) {
         app_exit_events.send(AppExit);
     }
 
-    // Handle display of the solution overlay pressing/releasing ControlLeft
+    // Handle display of the solution overlay pressing/releasing a key
     // Beware that some kind of puzzle don't have a solution that can be shown
     if input.just_pressed(KeyCode::ControlLeft) {
         let puzzle = puzzle.single();
@@ -190,12 +207,12 @@ fn test_inputs(
             *tiles = Visibility::Visible;
         }
     }
-    if input.just_pressed(KeyCode::ShiftLeft) {
+    if input.just_pressed(KeyCode::Space) {
         let mut puzzle = puzzle.single_mut();
         puzzle.show_errors = true;
         puzzle.show_outlines(&mut outlines, puzzle_assets.as_ref());
     }
-    if input.just_released(KeyCode::ShiftLeft) {
+    if input.just_released(KeyCode::Space) {
         let mut puzzle = puzzle.single_mut();
         puzzle.show_errors = false;
         puzzle.show_outlines(&mut outlines, puzzle_assets.as_ref());

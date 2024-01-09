@@ -173,6 +173,22 @@ impl Puzzle {
             (None, position, position)
         }
     }
+    pub fn apply_move_active_event(&mut self, event: PuzzleAction) {
+        use PuzzleAction::*;
+        if self.is_solved {
+            warn!("MoveActive event while puzzle is solved");
+        }
+        let mut position = self.active;
+        let size = self.size();
+        match event {
+            MoveActiveLeft => position.1 = position.1.max(1) - 1,
+            MoveActiveRight => position.1 = (position.1 + 1).min(size.1 - 1),
+            MoveActiveUp => position.0 = (position.0 + 1).min(size.0 - 1),
+            MoveActiveDown => position.0 = position.0.max(1) - 1,
+            _ => panic!("Not a MoveActive event: {:?}", event),
+        }
+        self.active = position;
+    }
     fn get_valid_moves(&self) -> Vec<PuzzleAction> {
         use PuzzleAction::*;
         let size = self.size();
@@ -396,6 +412,10 @@ pub enum PuzzleAction {
     MoveRight,
     MoveUp,
     MoveDown,
+    MoveActiveLeft,
+    MoveActiveRight,
+    MoveActiveUp,
+    MoveActiveDown,
     #[allow(dead_code)]
     ActiveFlipX,
     ActiveFlipY,
@@ -410,6 +430,10 @@ impl PuzzleAction {
             MoveRight => MoveLeft,
             MoveUp => MoveDown,
             MoveDown => MoveUp,
+            MoveActiveLeft => MoveActiveRight,
+            MoveActiveRight => MoveActiveLeft,
+            MoveActiveUp => MoveActiveDown,
+            MoveActiveDown => MoveActiveUp,
             ActiveFlipX => ActiveFlipX,
             ActiveFlipY => ActiveFlipY,
             ActiveRotateCW => ActiveRotateCCW,
@@ -466,6 +490,9 @@ pub fn handle_puzzle_action_events(
                             .expect("No Transform for the hole entity");
                         transform.translation = tile_translation_from_position(hole, size)
                     }
+                }
+                MoveActiveLeft | MoveActiveRight | MoveActiveUp | MoveActiveDown => {
+                    puzzle.apply_move_active_event(*event);
                 }
                 ActiveFlipX | ActiveFlipY => {
                     // TODO: this effective flip and event conversion should be a puzzle method
