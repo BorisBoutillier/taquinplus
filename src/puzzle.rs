@@ -223,8 +223,8 @@ impl Puzzle {
 }
 fn tile_translation_from_position(position: (usize, usize), size: (usize, usize)) -> Vec3 {
     Vec3::new(
-        (position.1 as isize - (size.1 as isize / 2)) as f32 / size.1 as f32,
-        (position.0 as isize - (size.0 as isize / 2)) as f32 / size.0 as f32,
+        (2 * position.1 as isize + 1 - size.1 as isize) as f32 / (2 * size.1) as f32,
+        (2 * position.0 as isize + 1 - size.0 as isize) as f32 / (2 * size.0) as f32,
         0.,
     )
 }

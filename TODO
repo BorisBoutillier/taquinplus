@@ -1,5 +1,6 @@
 . BUGS:
     . Correctly support display EVEN size puzzles.
+    . WASM build does not work, probably issue with reszing puzzle based on window resize events.
     
 . IMPROVEMNTS:
     . Add proper support for non-square puzzles.

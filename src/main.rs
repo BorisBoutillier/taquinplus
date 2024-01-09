@@ -48,7 +48,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         transform: Transform::from_xyz(0.0, 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
-    let mut puzzle = Puzzle::new(asset_server.load("images/1.png"), 7, 7);
+    let mut puzzle = Puzzle::new(asset_server.load("images/1.png"), 4, 4);
     puzzle.shuffle(1000, 1., 1., &mut rng);
     commands.add(puzzle);
 
