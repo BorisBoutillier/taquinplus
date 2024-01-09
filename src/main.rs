@@ -1,5 +1,5 @@
 use bevy::input::common_conditions::input_toggle_active;
-use bevy::window::WindowResized;
+use bevy::window::{PrimaryWindow, WindowFocused, WindowResized};
 use bevy::{app::AppExit, asset::AssetMetaCheck};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_tweening::TweeningPlugin;
@@ -36,7 +36,12 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut window_resized_events: EventWriter<WindowResized>,
+    primary_window: Query<Entity, With<PrimaryWindow>>,
+) {
     let mut rng = thread_rng();
     let projection = OrthographicProjection {
         far: 1000.,
@@ -56,6 +61,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         brightness: 3.0,
         ..default()
     });
+    // This ensure that at least one initial WindowResized event is sent at startup
+    // as this is not the case on WASM builds.
+    window_resized_events.send(WindowResized {
+        window: primary_window.single(),
+        width: 800.0,
+        height: 600.,
+    })
 }
 
 fn test_inputs(
