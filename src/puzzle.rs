@@ -51,6 +51,7 @@ pub struct Puzzle {
     pub is_solved: bool,
     pub show_errors: bool,
     pub hole_entity: Option<Entity>,
+    pub actions_count: usize,
 }
 impl Puzzle {
     pub fn new(image: Handle<Image>, width: usize, height: usize) -> Self {
@@ -80,6 +81,7 @@ impl Puzzle {
             is_solved: false,
             show_errors: false,
             hole_entity: None,
+            actions_count: 0,
         }
     }
     pub fn get_active_tile_mut(&mut self) -> &mut Option<Tile> {
@@ -451,6 +453,8 @@ pub fn handle_puzzle_action_events(
                                 end: end_translation,
                             },
                         );
+                        // This action count should be on puzzle methods
+                        puzzle.actions_count += 1;
                         let mut tile_animation = tile_animations.get_mut(entity).expect("Oops");
                         tile_animation.push_transform_tween(tween);
                     }
@@ -464,6 +468,12 @@ pub fn handle_puzzle_action_events(
                     }
                 }
                 ActiveFlipX | ActiveFlipY => {
+                    // TODO: this effective flip and event conversion should be a puzzle method
+                    // Only handling here a returned tile_entity and returned effective event
+                    // TODO: This action count should be on puzzle methods
+                    if puzzle.active != puzzle.hole {
+                        puzzle.actions_count += 1;
+                    }
                     if let Some(tile) = puzzle.get_active_tile_mut() {
                         // Convert the X/Y user axis to the local tile axis, based on tile rotation
                         let local_event = {
@@ -498,6 +508,12 @@ pub fn handle_puzzle_action_events(
                     }
                 }
                 ActiveRotateCW | ActiveRotateCCW => {
+                    // TODO: this rotationd event should be a puzzle method
+                    // Only handling here a returned tile_entity
+                    // TODO: This action count should be on puzzle methods
+                    if puzzle.active != puzzle.hole {
+                        puzzle.actions_count += 1;
+                    }
                     if let Some(tile) = puzzle.get_active_tile_mut() {
                         let start_rotation = tile.compute_rotation();
                         match event {
@@ -523,7 +539,7 @@ pub fn handle_puzzle_action_events(
             }
             puzzle.compute_solved();
             if puzzle.is_solved {
-                println!("SOLVED");
+                println!("SOLVED in {} actions", puzzle.actions_count);
                 for tile in puzzle.tiles.iter().filter_map(|tile| tile.as_ref()) {
                     if let Some(entity) = tile.entity {
                         let tween = Tween::new(

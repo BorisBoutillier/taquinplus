@@ -1,5 +1,9 @@
 . BUGS:
     
+. CLEANING:
+    . Better separate action event handling between, entity and non-entity related parts
+    . Better handle action counting, should be purely Puzzle internal
+    . Support starting without an active puzzle, need test on all 'single_mut'
 . IMPROVEMNTS:
     . Add proper support for non-square puzzles.
     . Test using a Violet outline to show misplaced+misoriented
@@ -7,11 +11,27 @@
     . Check how to improve separation between inherant puzzle content and display content.
     
 . FEATURES:
-    . Add scoring, at minimum the total number of actions, and a completion time.
-    . Add a countdown to start ( bluring the puzzle ?), necessary for completion time scoring.
+    . Add time keeping, in second but finally reported with 0.1s granularity
+    . Add a 'Go' button with countdown to start ( bluring the puzzle ?), necessary for completion time scoring.
     . Add support for non-solvable puzzle, provided as an array of image and score, and a final score.
     . Add a puzzle solver, than it run after the shuffling. Should reach minimal actions, so as to allow the user to compare.
     . Add solving viewer.
+    . Add support for random hole position
+    . Add Mouse base actions:
+        . Move over a tile make it active
+        . tile corner = rotation. Shown with a rotated arrow appearing
+        . sides allow to flipped. Shown with a <|> sign
+        . middle allow to slide. If applicable, an bit arrow in the middle for the direction of the slide.
+    . Add keyboard input to move active tile. (IJKL to starts with, possibly CTRL+arrows later)
+        Space: Show target
+        Shift: Show incorrect tiles
+        CTRL+arrow: Move active
+        arrows: Move tile.
+        WS: Y flip
+        AD: X flip
+        Q: Rotate CCW
+        E: Rotate CW
+    . Add a complete PuzzleConfiguration struct
 
 . UI:
     . Puzzle creation menu:
@@ -31,5 +51,3 @@
             . Choice from an available list
             . Each entry contains metadata with its information ( size, flips ? , rotation ? , random hole ?)
             . No helper available.
-    . Puzzle in solving UI:
-        . Current score ?
