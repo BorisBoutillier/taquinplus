@@ -43,8 +43,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let mut rng = thread_rng();
+fn setup(mut commands: Commands) {
     let projection = OrthographicProjection {
         far: 1000.,
         near: -1000.,
@@ -55,9 +54,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         transform: Transform::from_xyz(0.0, 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
-    let mut puzzle = Puzzle::new(asset_server.load("images/1.png"), 3, 3);
-    puzzle.shuffle(5, 0., 0., &mut rng);
-    commands.add(puzzle);
 
     commands.insert_resource(AmbientLight {
         brightness: 3.0,
@@ -134,8 +130,7 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn test_inputs(
     mut puzzle_solution: Query<&mut Visibility, (With<PuzzleSolution>, Without<PuzzleTiles>)>,
     mut puzzle_tiles: Query<&mut Visibility, With<PuzzleTiles>>,
-    puzzle_assets: Res<PuzzleAssets>,
-    mut puzzle: Query<&mut Puzzle>,
+    mut puzzle: Query<(&mut Puzzle, &PuzzleAssets)>,
     mut outlines: Query<&mut OutlineVolume>,
     input: Res<Input<KeyCode>>,
     mut puzzle_move_events: EventWriter<PuzzleAction>,
@@ -189,13 +184,14 @@ fn test_inputs(
     // Handle display of the solution overlay pressing/releasing a key
     // Beware that some kind of puzzle don't have a solution that can be shown
     if input.just_pressed(KeyCode::ControlLeft) {
-        let puzzle = puzzle.single();
-        if !puzzle.is_solved {
-            for mut solution in puzzle_solution.iter_mut() {
-                *solution = Visibility::Visible;
-            }
-            for mut tiles in puzzle_tiles.iter_mut() {
-                *tiles = Visibility::Hidden;
+        if let Ok((puzzle, _)) = puzzle.get_single() {
+            if !puzzle.is_solved {
+                for mut solution in puzzle_solution.iter_mut() {
+                    *solution = Visibility::Visible;
+                }
+                for mut tiles in puzzle_tiles.iter_mut() {
+                    *tiles = Visibility::Hidden;
+                }
             }
         }
     }
@@ -208,14 +204,16 @@ fn test_inputs(
         }
     }
     if input.just_pressed(KeyCode::Space) {
-        let mut puzzle = puzzle.single_mut();
-        puzzle.show_errors = true;
-        puzzle.show_outlines(&mut outlines, puzzle_assets.as_ref());
+        if let Ok((mut puzzle, puzzle_assets)) = puzzle.get_single_mut() {
+            puzzle.show_errors = true;
+            puzzle.show_outlines(&mut outlines, puzzle_assets);
+        }
     }
     if input.just_released(KeyCode::Space) {
-        let mut puzzle = puzzle.single_mut();
-        puzzle.show_errors = false;
-        puzzle.show_outlines(&mut outlines, puzzle_assets.as_ref());
+        if let Ok((mut puzzle, puzzle_assets)) = puzzle.get_single_mut() {
+            puzzle.show_errors = false;
+            puzzle.show_outlines(&mut outlines, puzzle_assets);
+        }
     }
 }
 fn new_puzzle(
@@ -256,13 +254,14 @@ fn puzzle_resize(
     resize_events: EventReader<WindowResized>,
 ) {
     if !resize_events.is_empty() || !added_puzzle.is_empty() {
-        let primary_window = primary_window.single();
-        let mut puzzle_transform = puzzle_transform.single_mut();
-        let height = primary_window.resolution.physical_height() as f32;
-        let width = primary_window.resolution.physical_width() as f32;
-        let min = (1. - HUD_PCT / 100.) * 0.95 * height.min(width);
-        puzzle_transform.scale = Vec3::new(min, min, 1.);
-        puzzle_transform.translation.y = -(height / 2.) * HUD_PCT / 100.;
+        if let Ok(mut puzzle_transform) = puzzle_transform.get_single_mut() {
+            let primary_window = primary_window.single();
+            let height = primary_window.resolution.physical_height() as f32;
+            let width = primary_window.resolution.physical_width() as f32;
+            let min = (1. - HUD_PCT / 100.) * 0.95 * height.min(width);
+            puzzle_transform.scale = Vec3::new(min, min, 1.);
+            puzzle_transform.translation.y = -(height / 2.) * HUD_PCT / 100.;
+        }
     }
 }
 
