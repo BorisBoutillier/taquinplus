@@ -3,11 +3,9 @@
 . CLEANING:
     . Better separate action event handling between, entity and non-entity related parts
     . Better handle action counting, should be purely Puzzle internal
-    . Support starting without an active puzzle, need test on all 'single_mut'
 . IMPROVEMNTS:
     . Add proper support for non-square puzzles.
     . Test using a Violet outline to show misplaced+misoriented
-    . Move PuzzleAssets as a component on the Puzzle Entity
     . Check how to improve separation between inherant puzzle content and display content.
     
 . FEATURES:
@@ -17,20 +15,11 @@
     . Add a puzzle solver, than it run after the shuffling. Should reach minimal actions, so as to allow the user to compare.
     . Add solving viewer.
     . Add support for random hole position
-    . Add Mouse base actions:
+    . Add Mouse based actions:
         . Move over a tile make it active
         . tile corner = rotation. Shown with a rotated arrow appearing
         . sides allow to flipped. Shown with a <|> sign
         . middle allow to slide. If applicable, an bit arrow in the middle for the direction of the slide.
-    . Add keyboard input to move active tile. (IJKL to starts with, possibly CTRL+arrows later)
-        Space: Show target
-        Shift: Show incorrect tiles
-        CTRL+arrow: Move active
-        arrows: Move tile.
-        WS: Y flip
-        AD: X flip
-        Q: Rotate CCW
-        E: Rotate CW
     . Add a complete PuzzleConfiguration struct
 
 . UI:
