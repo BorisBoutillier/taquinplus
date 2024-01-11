@@ -39,7 +39,7 @@ struct PostProcessSettings {
 @group(0) @binding(2) var<uniform> settings: PostProcessSettings;
 
 @fragment
-fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+fn fragment_x(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let sigma = clamp(settings.sigma, 0.0, 15.0);
     if sigma < 0.01 {
         return textureSample(screen_texture, texture_sampler, in.uv);
@@ -54,13 +54,37 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     var weight_sum = 0.0;
     let texture_size = vec2<f32>(textureDimensions(screen_texture));
     let texel_size = clamp(settings.sample_rate, 1.0, 100.) / texture_size;
+    let y = 0;
     for (var x = lower; x <= upper ; x ++) {
-        for (var y = lower; y <= upper ; y ++) {
-            let uv = in.uv + vec2<f32>(f32(x) * texel_size.x, f32(y) * texel_size.y);
-            let weight = gaussian_weight(x, y, sigma);
-            color += weight * textureSample(screen_texture, texture_sampler, uv);
-            weight_sum += weight;
-        }
+        let uv = in.uv + vec2<f32>(f32(x) * texel_size.x, f32(y) * texel_size.y);
+        let weight = gaussian_weight(x, y, sigma);
+        color += weight * textureSample(screen_texture, texture_sampler, uv);
+        weight_sum += weight;
+    }
+    return color / weight_sum;
+}
+@fragment
+fn fragment_y(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+    let sigma = clamp(settings.sigma, 0.0, 15.0);
+    if sigma < 0.01 {
+        return textureSample(screen_texture, texture_sampler, in.uv);
+    }
+    var kernel_size = clamp(settings.kernel_size, 1, 100);
+    if kernel_size % 2 == 0 {
+        kernel_size += 1;
+    };
+    let upper = (kernel_size - 1) / 2;
+    let lower = -upper;
+    var color = vec4(0.0);
+    var weight_sum = 0.0;
+    let texture_size = vec2<f32>(textureDimensions(screen_texture));
+    let texel_size = clamp(settings.sample_rate, 1.0, 100.) / texture_size;
+    let x = 0;
+    for (var y = lower; y <= upper ; y ++) {
+        let uv = in.uv + vec2<f32>(f32(x) * texel_size.x, f32(y) * texel_size.y);
+        let weight = gaussian_weight(x, y, sigma);
+        color += weight * textureSample(screen_texture, texture_sampler, uv);
+        weight_sum += weight;
     }
     return color / weight_sum;
 }

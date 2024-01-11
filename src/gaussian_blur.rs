@@ -139,7 +139,13 @@ impl ViewNode for GaussianBlurNode {
         let pipeline_cache = world.resource::<PipelineCache>();
 
         // Get the pipeline from the cache
-        let Some(pipeline) = pipeline_cache.get_render_pipeline(gaussian_blur_pipeline.pipeline_id)
+        let Some(pipeline_x) =
+            pipeline_cache.get_render_pipeline(gaussian_blur_pipeline.pipeline_x_id)
+        else {
+            return Ok(());
+        };
+        let Some(pipeline_y) =
+            pipeline_cache.get_render_pipeline(gaussian_blur_pipeline.pipeline_y_id)
         else {
             return Ok(());
         };
@@ -150,54 +156,56 @@ impl ViewNode for GaussianBlurNode {
             return Ok(());
         };
 
-        // This will start a new "post process write", obtaining two texture
-        // views from the view target - a `source` and a `destination`.
-        // `source` is the "current" main texture and you _must_ write into
-        // `destination` because calling `post_process_write()` on the
-        // [`ViewTarget`] will internally flip the [`ViewTarget`]'s main
-        // texture to the `destination` texture. Failing to do so will cause
-        // the current main texture information to be lost.
-        let post_process = view_target.post_process_write();
+        for pipeline in [pipeline_x, pipeline_y] {
+            // This will start a new "post process write", obtaining two texture
+            // views from the view target - a `source` and a `destination`.
+            // `source` is the "current" main texture and you _must_ write into
+            // `destination` because calling `post_process_write()` on the
+            // [`ViewTarget`] will internally flip the [`ViewTarget`]'s main
+            // texture to the `destination` texture. Failing to do so will cause
+            // the current main texture information to be lost.
+            let post_process = view_target.post_process_write();
 
-        // The bind_group gets created each frame.
-        //
-        // Normally, you would create a bind_group in the Queue set,
-        // but this doesn't work with the post_process_write().
-        // The reason it doesn't work is because each post_process_write will alternate the source/destination.
-        // The only way to have the correct source/destination for the bind_group
-        // is to make sure you get it during the node execution.
-        let bind_group = render_context.render_device().create_bind_group(
-            "gaussian_blur_bind_group",
-            &gaussian_blur_pipeline.layout,
-            // It's important for this to match the BindGroupLayout defined in the GaussianBlurPipeline
-            &BindGroupEntries::sequential((
-                // Make sure to use the source view
-                post_process.source,
-                // Use the sampler created for the pipeline
-                &gaussian_blur_pipeline.sampler,
-                // Set the settings binding
-                settings_binding.clone(),
-            )),
-        );
+            // The bind_group gets created each frame.
+            //
+            // Normally, you would create a bind_group in the Queue set,
+            // but this doesn't work with the post_process_write().
+            // The reason it doesn't work is because each post_process_write will alternate the source/destination.
+            // The only way to have the correct source/destination for the bind_group
+            // is to make sure you get it during the node execution.
+            let bind_group = render_context.render_device().create_bind_group(
+                "gaussian_blur_bind_group",
+                &gaussian_blur_pipeline.layout,
+                // It's important for this to match the BindGroupLayout defined in the GaussianBlurPipeline
+                &BindGroupEntries::sequential((
+                    // Make sure to use the source view
+                    post_process.source,
+                    // Use the sampler created for the pipeline
+                    &gaussian_blur_pipeline.sampler,
+                    // Set the settings binding
+                    settings_binding.clone(),
+                )),
+            );
 
-        // Begin the render pass
-        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("gaussian_blur_pass"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                // We need to specify the post process destination view here
-                // to make sure we write to the appropriate texture.
-                view: post_process.destination,
-                resolve_target: None,
-                ops: Operations::default(),
-            })],
-            depth_stencil_attachment: None,
-        });
+            // Begin the render pass
+            let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
+                label: Some("gaussian_blur_pass"),
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    // We need to specify the post process destination view here
+                    // to make sure we write to the appropriate texture.
+                    view: post_process.destination,
+                    resolve_target: None,
+                    ops: Operations::default(),
+                })],
+                depth_stencil_attachment: None,
+            });
 
-        // This is mostly just wgpu boilerplate for drawing a fullscreen triangle,
-        // using the pipeline/bind_group created above
-        render_pass.set_render_pipeline(pipeline);
-        render_pass.set_bind_group(0, &bind_group, &[]);
-        render_pass.draw(0..3, 0..1);
+            // This is mostly just wgpu boilerplate for drawing a fullscreen triangle,
+            // using the pipeline/bind_group created above
+            render_pass.set_render_pipeline(pipeline);
+            render_pass.set_bind_group(0, &bind_group, &[]);
+            render_pass.draw(0..3, 0..1);
+        }
 
         Ok(())
     }
@@ -208,7 +216,8 @@ impl ViewNode for GaussianBlurNode {
 struct GaussianBlurPipeline {
     layout: BindGroupLayout,
     sampler: Sampler,
-    pipeline_id: CachedRenderPipelineId,
+    pipeline_x_id: CachedRenderPipelineId,
+    pipeline_y_id: CachedRenderPipelineId,
 }
 
 impl FromWorld for GaussianBlurPipeline {
@@ -257,7 +266,34 @@ impl FromWorld for GaussianBlurPipeline {
         // Get the shader handle
         let shader = world.resource::<AssetServer>().load("gaussian_blur.wgsl");
 
-        let pipeline_id = world
+        let pipeline_x_id = world
+            .resource_mut::<PipelineCache>()
+            // This will add the pipeline to the cache and queue it's creation
+            .queue_render_pipeline(RenderPipelineDescriptor {
+                label: Some("gaussian_blur_pipeline".into()),
+                layout: vec![layout.clone()],
+                // This will setup a fullscreen triangle for the vertex state
+                vertex: fullscreen_shader_vertex_state(),
+                fragment: Some(FragmentState {
+                    shader: shader.clone(),
+                    shader_defs: vec![],
+                    // Make sure this matches the entry point of your shader.
+                    // It can be anything as long as it matches here and in the shader.
+                    entry_point: "fragment_x".into(),
+                    targets: vec![Some(ColorTargetState {
+                        format: TextureFormat::bevy_default(),
+                        blend: None,
+                        write_mask: ColorWrites::ALL,
+                    })],
+                }),
+                // All of the following properties are not important for this effect so just use the default values.
+                // This struct doesn't have the Default trait implemented because not all field can have a default value.
+                primitive: PrimitiveState::default(),
+                depth_stencil: None,
+                multisample: MultisampleState::default(),
+                push_constant_ranges: vec![],
+            });
+        let pipeline_y_id = world
             .resource_mut::<PipelineCache>()
             // This will add the pipeline to the cache and queue it's creation
             .queue_render_pipeline(RenderPipelineDescriptor {
@@ -270,7 +306,7 @@ impl FromWorld for GaussianBlurPipeline {
                     shader_defs: vec![],
                     // Make sure this matches the entry point of your shader.
                     // It can be anything as long as it matches here and in the shader.
-                    entry_point: "fragment".into(),
+                    entry_point: "fragment_y".into(),
                     targets: vec![Some(ColorTargetState {
                         format: TextureFormat::bevy_default(),
                         blend: None,
@@ -288,7 +324,8 @@ impl FromWorld for GaussianBlurPipeline {
         Self {
             layout,
             sampler,
-            pipeline_id,
+            pipeline_x_id,
+            pipeline_y_id,
         }
     }
 }
