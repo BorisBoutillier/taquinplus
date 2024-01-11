@@ -5,6 +5,7 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_tweening::TweeningPlugin;
 
 mod game_state;
+mod gaussian_blur;
 mod prelude;
 mod puzzle;
 mod tile;
@@ -26,7 +27,7 @@ fn main() {
         .add_plugins(
             WorldInspectorPlugin::default().run_if(input_toggle_active(false, KeyCode::F12)),
         )
-        .add_plugins(TweeningPlugin)
+        .add_plugins((TweeningPlugin, GaussianBlurPlugin))
         .add_plugins((OutlinePlugin, AutoGenerateOutlineNormalsPlugin))
         .add_systems(Startup, setup)
         .add_event::<PuzzleAction>()
@@ -34,6 +35,7 @@ fn main() {
         .add_systems(Update, handle_puzzle_action_events)
         .add_systems(Update, puzzle_resize)
         .add_systems(Update, asset_animator_system::<Mesh>)
+        .add_systems(Update, component_animator_system::<GaussianBlurSettings>)
         .add_systems(Update, tile_animation)
         .add_systems(Startup, setup_ui_header)
         .add_systems(Update, update_ui_header)
@@ -48,6 +50,8 @@ fn main() {
             Update,
             puzzle_solve_interation.run_if(in_state(GameState::PuzzleSolve)),
         )
+        .add_systems(OnEnter(GameState::PuzzleSolve), puzzle_deblur)
+        .add_systems(OnExit(GameState::PuzzleSolve), puzzle_blur)
         .run();
 }
 
@@ -57,11 +61,22 @@ fn setup(mut commands: Commands) {
         near: -1000.,
         ..default()
     };
-    commands.spawn(Camera3dBundle {
-        projection: Projection::Orthographic(projection),
-        transform: Transform::from_xyz(0.0, 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3dBundle {
+            projection: Projection::Orthographic(projection),
+            transform: Transform::from_xyz(0.0, 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        },
+        // Add the setting to the camera.
+        // This component is also used to determine on which camera to run the post processing effect.
+        GaussianBlurSettings {
+            sigma: 15.,
+            kernel_size: 15,
+            sample_rate_factor: 1.0,
+            #[cfg(feature = "webgl2")]
+            _webgl2_padding: 0.,
+        },
+    ));
 
     commands.insert_resource(AmbientLight {
         brightness: 3.0,

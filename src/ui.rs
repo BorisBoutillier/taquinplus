@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use bevy::app::AppExit;
 use rand::thread_rng;
 
@@ -272,4 +274,34 @@ pub fn menu_event_handler(
             }
         }
     }
+}
+pub fn puzzle_deblur(
+    mut commands: Commands,
+    camera: Query<Entity, (With<Camera>, With<GaussianBlurSettings>)>,
+) {
+    let tween = Tween::new(
+        EaseFunction::QuadraticInOut,
+        Duration::from_millis(BLUR_ANIMATION_DURATION),
+        GaussianBlurLens {
+            start: BLUR,
+            end: NO_BLUR,
+        },
+    );
+    let camera_entity = camera.single();
+    commands.entity(camera_entity).insert(Animator::new(tween));
+}
+pub fn puzzle_blur(
+    mut commands: Commands,
+    camera: Query<Entity, (With<Camera>, With<GaussianBlurSettings>)>,
+) {
+    let tween = Tween::new(
+        EaseFunction::QuadraticInOut,
+        Duration::from_millis(BLUR_ANIMATION_DURATION),
+        GaussianBlurLens {
+            start: NO_BLUR,
+            end: BLUR,
+        },
+    );
+    let camera_entity = camera.single();
+    commands.entity(camera_entity).insert(Animator::new(tween));
 }

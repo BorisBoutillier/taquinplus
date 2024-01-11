@@ -442,7 +442,6 @@ impl PuzzleAction {
     }
 }
 
-const ACTION_ANIMATION_DURATION: u64 = 150;
 pub fn handle_puzzle_action_events(
     mut commands: Commands,
     mut events: EventReader<PuzzleAction>,

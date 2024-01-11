@@ -21,6 +21,8 @@
         . sides allow to flipped. Shown with a <|> sign
         . middle allow to slide. If applicable, an bit arrow in the middle for the direction of the slide.
     . Add a complete PuzzleConfiguration struct
+    . Add a status bar, that display main keyboard actions for current gamestate.
+    . Add possibility to use a random image from https://picsum.photos/ ?
 
 . UI:
     . Puzzle creation menu:
