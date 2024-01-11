@@ -14,16 +14,18 @@ pub const UI_COLOR_2: Color = Color::rgb(78. / 255., 68. / 255., 122. / 255.);
 pub const UI_COLOR_3: Color = Color::rgb(44. / 255., 39. / 255., 69. / 255.);
 pub const MAIN_BACKGROUND_COLOR: Color = Color::rgb(39. / 255., 34. / 255., 61. / 255.);
 
-pub const BLUR_ANIMATION_DURATION: u64 = 150;
+pub const BLUR_ANIMATION_DURATION: u64 = 300;
 pub const ACTION_ANIMATION_DURATION: u64 = 150;
 
 pub const BLUR: GaussianBlurSettings = GaussianBlurSettings {
     sigma: 15.0,
-    kernel_size: 15,
-    sample_rate_factor: 3.0,
+    kernel_size: 60,
+    sample_rate_factor: 1.0,
+    _webgl2_padding: 0.,
 };
 pub const NO_BLUR: GaussianBlurSettings = GaussianBlurSettings {
     sigma: 0.0,
     kernel_size: 1,
     sample_rate_factor: 1.0,
+    _webgl2_padding: 0.,
 };

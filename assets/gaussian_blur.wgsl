@@ -33,10 +33,8 @@ struct PostProcessSettings {
     sigma: f32,
     kernel_size: i32,
     sample_rate: f32,
-#ifdef SIXTEEN_BYTE_ALIGNMENT
     // WebGL2 structs must be 16 byte aligned.
-    _webgl2_padding: f32
-#endif
+    _webgl2_padding: f32,
 }
 @group(0) @binding(2) var<uniform> settings: PostProcessSettings;
 
@@ -46,11 +44,11 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     if sigma < 0.01 {
         return textureSample(screen_texture, texture_sampler, in.uv);
     }
-    var grid_size = clamp(settings.kernel_size, 1, 100);
-    if grid_size % 2 == 0 {
-        grid_size += 1;
+    var kernel_size = clamp(settings.kernel_size, 1, 100);
+    if kernel_size % 2 == 0 {
+        kernel_size += 1;
     };
-    let upper = (grid_size - 1) / 2;
+    let upper = (kernel_size - 1) / 2;
     let lower = -upper;
     var color = vec4(0.0);
     var weight_sum = 0.0;

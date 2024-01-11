@@ -104,7 +104,7 @@ impl Plugin for GaussianBlurPlugin {
 #[derive(Default)]
 struct GaussianBlurNode;
 impl GaussianBlurNode {
-    pub const NAME: &'static str = "post_process";
+    pub const NAME: &'static str = "gaussian_blur";
 }
 
 // The ViewNode trait is required by the ViewNodeRunner
@@ -131,7 +131,7 @@ impl ViewNode for GaussianBlurNode {
     ) -> Result<(), NodeRunError> {
         // Get the pipeline resource that contains the global data we need
         // to create the render pipeline
-        let post_process_pipeline = world.resource::<GaussianBlurPipeline>();
+        let gaussian_blur_pipeline = world.resource::<GaussianBlurPipeline>();
 
         // The pipeline cache is a cache of all previously created pipelines.
         // It is required to avoid creating a new pipeline each frame,
@@ -139,7 +139,7 @@ impl ViewNode for GaussianBlurNode {
         let pipeline_cache = world.resource::<PipelineCache>();
 
         // Get the pipeline from the cache
-        let Some(pipeline) = pipeline_cache.get_render_pipeline(post_process_pipeline.pipeline_id)
+        let Some(pipeline) = pipeline_cache.get_render_pipeline(gaussian_blur_pipeline.pipeline_id)
         else {
             return Ok(());
         };
@@ -167,14 +167,14 @@ impl ViewNode for GaussianBlurNode {
         // The only way to have the correct source/destination for the bind_group
         // is to make sure you get it during the node execution.
         let bind_group = render_context.render_device().create_bind_group(
-            "post_process_bind_group",
-            &post_process_pipeline.layout,
+            "gaussian_blur_bind_group",
+            &gaussian_blur_pipeline.layout,
             // It's important for this to match the BindGroupLayout defined in the GaussianBlurPipeline
             &BindGroupEntries::sequential((
                 // Make sure to use the source view
                 post_process.source,
                 // Use the sampler created for the pipeline
-                &post_process_pipeline.sampler,
+                &gaussian_blur_pipeline.sampler,
                 // Set the settings binding
                 settings_binding.clone(),
             )),
@@ -182,7 +182,7 @@ impl ViewNode for GaussianBlurNode {
 
         // Begin the render pass
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("post_process_pass"),
+            label: Some("gaussian_blur_pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 // We need to specify the post process destination view here
                 // to make sure we write to the appropriate texture.
@@ -217,7 +217,7 @@ impl FromWorld for GaussianBlurPipeline {
 
         // We need to define the bind group layout used for our pipeline
         let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("post_process_bind_group_layout"),
+            label: Some("gaussian_blur_bind_group_layout"),
             entries: &[
                 // The screen texture
                 BindGroupLayoutEntry {
@@ -261,7 +261,7 @@ impl FromWorld for GaussianBlurPipeline {
             .resource_mut::<PipelineCache>()
             // This will add the pipeline to the cache and queue it's creation
             .queue_render_pipeline(RenderPipelineDescriptor {
-                label: Some("post_process_pipeline".into()),
+                label: Some("gaussian_blur_pipeline".into()),
                 layout: vec![layout.clone()],
                 // This will setup a fullscreen triangle for the vertex state
                 vertex: fullscreen_shader_vertex_state(),
@@ -309,8 +309,7 @@ pub struct GaussianBlurSettings {
     // An higher value allow to create a 'bigger' blur effect without requiring increasing the kernel_size
     pub sample_rate_factor: f32,
     // WebGL2 structs must be 16 byte aligned.
-    #[cfg(feature = "webgl2")]
-    _webgl2_padding: f32,
+    pub _webgl2_padding: f32,
 }
 
 pub struct GaussianBlurLens {

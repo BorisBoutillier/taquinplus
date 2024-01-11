@@ -27,7 +27,8 @@ fn main() {
         .add_plugins(
             WorldInspectorPlugin::default().run_if(input_toggle_active(false, KeyCode::F12)),
         )
-        .add_plugins((TweeningPlugin, GaussianBlurPlugin))
+        .add_plugins(TweeningPlugin)
+        .add_plugins(GaussianBlurPlugin)
         .add_plugins((OutlinePlugin, AutoGenerateOutlineNormalsPlugin))
         .add_systems(Startup, setup)
         .add_event::<PuzzleAction>()
@@ -67,15 +68,7 @@ fn setup(mut commands: Commands) {
             transform: Transform::from_xyz(0.0, 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
-        // Add the setting to the camera.
-        // This component is also used to determine on which camera to run the post processing effect.
-        GaussianBlurSettings {
-            sigma: 15.,
-            kernel_size: 15,
-            sample_rate_factor: 1.0,
-            #[cfg(feature = "webgl2")]
-            _webgl2_padding: 0.,
-        },
+        BLUR,
     ));
 
     commands.insert_resource(AmbientLight {

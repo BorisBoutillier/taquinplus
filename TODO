@@ -1,5 +1,5 @@
 . BUGS:
-    
+
 . CLEANING:
     . Better separate action event handling between, entity and non-entity related parts
     . Better handle action counting, should be purely Puzzle internal
