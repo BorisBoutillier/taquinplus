@@ -1,4 +1,5 @@
 use bevy::asset::AssetMetaCheck;
+use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::window::{PrimaryWindow, WindowResized};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
@@ -27,6 +28,7 @@ fn main() {
         .add_plugins(
             WorldInspectorPlugin::default().run_if(input_toggle_active(false, KeyCode::F12)),
         )
+        .add_plugins(FrameTimeDiagnosticsPlugin)
         .add_plugins(TweeningPlugin)
         .add_plugins(GaussianBlurPlugin)
         .add_plugins((OutlinePlugin, AutoGenerateOutlineNormalsPlugin))
@@ -53,6 +55,7 @@ fn main() {
         )
         .add_systems(OnEnter(GameState::PuzzleSolve), puzzle_deblur)
         .add_systems(OnExit(GameState::PuzzleSolve), puzzle_blur)
+        .add_systems(Update, show_fps)
         .run();
 }
 
@@ -178,6 +181,17 @@ fn puzzle_resize(
             let min = 0.95 * height.min(width);
             puzzle_transform.scale = Vec3::new(min, min, 1.);
             puzzle_transform.translation.y = -UI_HEADER_PX / 2.;
+        }
+    }
+}
+
+fn show_fps(input: Res<Input<KeyCode>>, diag: Res<DiagnosticsStore>) {
+    if input.just_pressed(KeyCode::F) {
+        if let Some(fps) = diag
+            .get(FrameTimeDiagnosticsPlugin::FPS)
+            .and_then(|fps| fps.smoothed())
+        {
+            println!("FPS: {:.1}", fps);
         }
     }
 }
