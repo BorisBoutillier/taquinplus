@@ -5,6 +5,7 @@ pub use crate::tile::*;
 pub use crate::ui::*;
 pub use bevy::prelude::*;
 pub use bevy_mod_outline::*;
+pub use bevy_mod_picking::prelude::*;
 pub use bevy_tweening::*;
 
 pub const UI_HEADER_PX: f32 = 24.0;

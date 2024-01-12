@@ -189,6 +189,20 @@ impl Puzzle {
         }
         self.active = position;
     }
+    pub fn set_active_entity(&mut self, ref_entity: &Entity) {
+        if let Some(coord) = self
+            .tiles
+            .indexed_iter()
+            .filter_map(|(coord, tile)| {
+                tile.as_ref()
+                    .and_then(|tile| tile.entity)
+                    .map(|entity| (coord, entity))
+            })
+            .find_map(|(coord, entity)| (&entity == ref_entity).then_some(coord))
+        {
+            self.active = coord;
+        }
+    }
     fn get_valid_moves(&self) -> Vec<PuzzleAction> {
         use PuzzleAction::*;
         let size = self.size();
@@ -299,6 +313,12 @@ impl Command for Puzzle {
                             },
                             ..default()
                         })
+                        .insert(PickableBundle::default())
+                        .insert(On::<Pointer<Over>>::run(
+                            |event: Listener<Pointer<Over>>, mut puzzle_action_events: EventWriter<PuzzleAction>| {
+                                puzzle_action_events.send(PuzzleAction::SetActive(event.target));
+                            },
+                        ))
                         .id(),
                 );
                 // Duplicate the tile to add to the PuzzleSolution at the real tile position
@@ -416,6 +436,7 @@ pub enum PuzzleAction {
     MoveActiveRight,
     MoveActiveUp,
     MoveActiveDown,
+    SetActive(Entity),
     #[allow(dead_code)]
     ActiveFlipX,
     ActiveFlipY,
@@ -434,6 +455,7 @@ impl PuzzleAction {
             MoveActiveRight => MoveActiveLeft,
             MoveActiveUp => MoveActiveDown,
             MoveActiveDown => MoveActiveUp,
+            SetActive(entity) => SetActive(*entity),
             ActiveFlipX => ActiveFlipX,
             ActiveFlipY => ActiveFlipY,
             ActiveRotateCW => ActiveRotateCCW,
@@ -488,6 +510,9 @@ pub fn handle_puzzle_action_events(
                     }
                     MoveActiveLeft | MoveActiveRight | MoveActiveUp | MoveActiveDown => {
                         puzzle.apply_move_active_event(*event);
+                    }
+                    SetActive(entity) => {
+                        puzzle.set_active_entity(entity);
                     }
                     ActiveFlipX | ActiveFlipY => {
                         // TODO: this effective flip and event conversion should be a puzzle method

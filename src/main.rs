@@ -31,6 +31,12 @@ fn main() {
         .add_plugins(FrameTimeDiagnosticsPlugin)
         .add_plugins(TweeningPlugin)
         .add_plugins(GaussianBlurPlugin)
+        .add_plugins(
+            DefaultPickingPlugins
+                .build()
+                .disable::<DebugPickingPlugin>()
+                .disable::<DefaultHighlightingPlugin>(),
+        )
         .add_plugins((OutlinePlugin, AutoGenerateOutlineNormalsPlugin))
         .add_systems(Startup, setup)
         .add_event::<PuzzleAction>()
