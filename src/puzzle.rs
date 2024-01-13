@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::time::Duration;
 
@@ -16,6 +17,12 @@ use rand::RngCore;
 // .1 is the column
 pub type Coord = (usize, usize);
 
+pub fn dist_of_1(p1: Coord, p2: Coord) -> bool {
+    [(0, 1), (1, 0)].contains(&(
+        (p1.0 as i32 - p2.0 as i32).abs(),
+        (p1.1 as i32 - p2.1 as i32).abs(),
+    ))
+}
 // Tag component for the parent of all solution tiles
 #[derive(Component)]
 pub struct PuzzleSolution;
@@ -40,6 +47,8 @@ pub struct PuzzleAssets {
     outline_color_misoriented: Color,
     // Color of the tile outline when the tile is the active tile
     outline_color_active: Color,
+    // Material containing icon for most Puzzle Actions
+    action_tip_materials: HashMap<PuzzleAction, Handle<StandardMaterial>>,
 }
 
 #[derive(Component)]
@@ -51,6 +60,7 @@ pub struct Puzzle {
     pub is_solved: bool,
     pub show_errors: bool,
     pub hole_entity: Option<Entity>,
+    pub action_tip_entity: Option<Entity>,
     pub actions_count: usize,
 }
 impl Puzzle {
@@ -81,6 +91,7 @@ impl Puzzle {
             is_solved: false,
             show_errors: false,
             hole_entity: None,
+            action_tip_entity: None,
             actions_count: 0,
         }
     }
@@ -160,9 +171,12 @@ impl Puzzle {
             MoveRight => position.1 = position.1.max(1) - 1,
             MoveUp => position.0 = position.0.max(1) - 1,
             MoveDown => position.0 = (position.0 + 1).min(size.0 - 1),
+            MoveActive => position = self.active,
             _ => panic!("Not a Move event: {:?}", event),
         }
-        if let Some(tile) = self.tiles.get_mut(position.0, position.1).unwrap().take() {
+        if !dist_of_1(self.hole, position) {
+            (None, self.hole, self.hole)
+        } else if let Some(tile) = self.tiles.get_mut(position.0, position.1).unwrap().take() {
             let destination = self.hole;
             self.active = destination;
             let entity = tile.entity;
@@ -170,7 +184,7 @@ impl Puzzle {
             self.hole = position;
             (entity, destination, position)
         } else {
-            (None, position, position)
+            (None, self.hole, self.hole)
         }
     }
     pub fn apply_move_active_event(&mut self, event: PuzzleAction) {
@@ -257,10 +271,14 @@ fn tile_translation_from_position(position: (usize, usize), size: (usize, usize)
     Vec3::new(
         (2 * position.1 as isize + 1 - size.1 as isize) as f32 / (2 * size.1) as f32,
         (2 * position.0 as isize + 1 - size.0 as isize) as f32 / (2 * size.0) as f32,
-        0.,
+        0.0,
     )
 }
 
+#[derive(Component)]
+pub struct ActionTip;
+#[derive(Component)]
+pub struct ActionTipIcon;
 impl Command for Puzzle {
     fn apply(mut self, world: &mut World) {
         let tile_material = {
@@ -275,7 +293,7 @@ impl Command for Puzzle {
         };
         let size = self.size();
         let tile_scale = {
-            let scale = 0.93 / (size.0.max(size.1) as f32);
+            let scale = TILE_OCCUPANCY / (size.0.max(size.1) as f32);
             Vec3::new(scale, scale, 5.)
         };
         let solved_tile_scale = {
@@ -295,29 +313,27 @@ impl Command for Puzzle {
                 };
                 tile.entity = Some(
                     world
-                        .spawn(PbrBundle {
-                            material: tile_material.clone(),
-                            mesh,
-                            transform: tile_transform
-                                .with_rotation(tile.compute_rotation())
-                                .with_translation(tile_translation_from_position(index, size)),
-                            ..default()
-                        })
-                        .insert(TileAnimationBundle::default())
-                        .insert(Name::new(format!("Tile_Ref_{}x{}", index.1, index.0)))
-                        .insert(OutlineBundle {
-                            outline: OutlineVolume {
-                                visible: false,
-                                width: 2.0,
-                                colour: Color::WHITE,
+                        .spawn((
+                            PbrBundle {
+                                material: tile_material.clone(),
+                                mesh,
+                                transform: tile_transform
+                                    .with_rotation(tile.compute_rotation())
+                                    .with_translation(tile_translation_from_position(index, size)),
+                                ..default()
                             },
-                            ..default()
-                        })
-                        .insert(PickableBundle::default())
-                        .insert(On::<Pointer<Over>>::run(
-                            |event: Listener<Pointer<Over>>, mut puzzle_action_events: EventWriter<PuzzleAction>| {
-                                puzzle_action_events.send(PuzzleAction::SetActive(event.target));
+                            TileAnimationBundle::default(),
+                            Name::new(format!("Tile_Ref_{}x{}", index.1, index.0)),
+                            OutlineBundle {
+                                outline: OutlineVolume {
+                                    visible: false,
+                                    width: 2.0,
+                                    colour: Color::WHITE,
+                                },
+                                ..default()
                             },
+                            On::<Pointer<Move>>::run(tile_on_moving_over),
+                            On::<Pointer<Click>>::run(tile_on_click),
                         ))
                         .id(),
                 );
@@ -381,12 +397,73 @@ impl Command for Puzzle {
             })
             .id();
         self.hole_entity = Some(hole_entity);
+        // Action tip entity
+        let action_tip_material = {
+            let mut materials = world
+                .get_resource_mut::<Assets<StandardMaterial>>()
+                .expect("No Resource Assets<StandardMaterial>");
+            materials.add(Color::rgba(1.0, 1.0, 1.0, 0.1).into())
+        };
+        let action_tip_mesh = {
+            let mut meshes = world
+                .get_resource_mut::<Assets<Mesh>>()
+                .expect("No Resource Assets<Mesh>");
+
+            meshes.add(Mesh::from(shape::Cube::new(1.0)))
+        };
+        let puzzle_action_tip = world
+            .spawn((
+                SpatialBundle {
+                    transform: Transform::from_translation(Vec3::new(0., 0., Z_PUZZLE_SOLUTION)),
+                    ..default()
+                },
+                Name::new("ActionTip"),
+            ))
+            .with_children(|parent| {
+                parent.spawn((
+                    PbrBundle {
+                        visibility: Visibility::Hidden,
+                        transform: tile_transform.with_translation(Vec3::new(
+                            0.,
+                            0.,
+                            Z_PUZZLE_ACTION_TIP,
+                        )),
+                        mesh: action_tip_mesh.clone(),
+                        material: action_tip_material,
+                        ..default()
+                    },
+                    ActionTip,
+                    Pickable {
+                        should_block_lower: false,
+                        should_emit_events: true,
+                    },
+                            On::<Pointer<Out>>::run(
+                                |_event: Listener<Pointer<Out>>,
+                                 mut action_tip: Query<
+                                    &mut Visibility,
+                                    With<ActionTip>,
+                                >| {
+                                    if let Ok(mut action_tip) = action_tip.get_single_mut() {
+                                        *action_tip = Visibility::Hidden;
+                                    }
+                                },
+                )))
+            .with_children(|parent| {
+                parent.spawn((
+                    PbrBundle {
+                        transform: Transform::from_scale(Vec3::new(0.6,0.6,1.)),
+                        mesh: action_tip_mesh,
+                        ..default()
+                    }, ActionTipIcon,Pickable::IGNORE)
+            );});
+            })
+            .id();
+        self.action_tip_entity = Some(puzzle_action_tip);
         // Spawn the puzzle solution parent
         let puzzle_solution = world
             .spawn(SpatialBundle {
                 visibility: Visibility::Hidden,
-                // Have the solution 'on top' of the puzzle, so positive Z
-                transform: Transform::from_translation(Vec3::new(0., 0., 1.)),
+                transform: Transform::from_translation(Vec3::new(0., 0., Z_PUZZLE_SOLUTION)),
                 ..default()
             })
             .push_children(&solution_tiles)
@@ -395,7 +472,10 @@ impl Command for Puzzle {
             .id();
         // Spawn the puzzle tiles parent
         let puzzle_tiles = world
-            .spawn(SpatialBundle::default())
+            .spawn(SpatialBundle {
+                transform: Transform::from_translation(Vec3::new(0., 0., Z_PUZZLE_TILE)),
+                ..default()
+            })
             .push_children(
                 &self
                     .tiles
@@ -408,6 +488,31 @@ impl Command for Puzzle {
             .insert(PuzzleTiles)
             .id();
 
+        let mut action_tip_materials = HashMap::new();
+        // Action tip entity
+        {
+            let mut materials = world
+                .get_resource_mut::<Assets<StandardMaterial>>()
+                .expect("No Resource Assets<StandardMaterial>");
+            action_tip_materials.insert(
+                PuzzleAction::ActiveFlipX,
+                materials.add(Color::GREEN.into()),
+            );
+            action_tip_materials.insert(
+                PuzzleAction::ActiveFlipY,
+                materials.add(Color::LIME_GREEN.into()),
+            );
+            action_tip_materials.insert(
+                PuzzleAction::ActiveRotateCCW,
+                materials.add(Color::BLUE.into()),
+            );
+            action_tip_materials.insert(
+                PuzzleAction::ActiveRotateCW,
+                materials.add(Color::MIDNIGHT_BLUE.into()),
+            );
+            action_tip_materials.insert(PuzzleAction::MoveActive, materials.add(Color::RED.into()));
+        }
+
         // Spawn the puzzle main entity, with solution and tiles children
         world
             .spawn(SpatialBundle::default())
@@ -419,19 +524,22 @@ impl Command for Puzzle {
                 outline_color_active: Color::WHITE,
                 outline_color_misoriented: Color::ORANGE,
                 outline_color_misplaced: Color::RED,
+                action_tip_materials,
             })
             .add_child(puzzle_solution)
-            .add_child(puzzle_tiles);
+            .add_child(puzzle_tiles)
+            .add_child(puzzle_action_tip);
         // Create the resource containing all the needed asset handles for the Puzzle
     }
 }
 
-#[derive(Debug, Event, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Event, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PuzzleAction {
     MoveLeft,
     MoveRight,
     MoveUp,
     MoveDown,
+    MoveActive,
     MoveActiveLeft,
     MoveActiveRight,
     MoveActiveUp,
@@ -451,6 +559,7 @@ impl PuzzleAction {
             MoveRight => MoveLeft,
             MoveUp => MoveDown,
             MoveDown => MoveUp,
+            MoveActive => MoveActive,
             MoveActiveLeft => MoveActiveRight,
             MoveActiveRight => MoveActiveLeft,
             MoveActiveUp => MoveActiveDown,
@@ -469,6 +578,7 @@ pub fn handle_puzzle_action_events(
     mut events: EventReader<PuzzleAction>,
     mut puzzle: Query<(&mut Puzzle, &PuzzleAssets)>,
     mut transforms: Query<&mut Transform>,
+    mut action_tip_visibility: Query<&mut Visibility, With<ActionTip>>,
     mut tile_animations: Query<&mut TileAnimation>,
     mut outlines: Query<&mut OutlineVolume>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -479,7 +589,7 @@ pub fn handle_puzzle_action_events(
         if let Ok((mut puzzle, puzzle_assets)) = puzzle.get_single_mut() {
             if !puzzle.is_solved {
                 match event {
-                    MoveLeft | MoveRight | MoveUp | MoveDown => {
+                    MoveLeft | MoveRight | MoveUp | MoveDown | MoveActive => {
                         let (entity, destination, source) = puzzle.apply_move_event(*event);
                         if let Some(entity) = entity {
                             let start_translation =
@@ -506,6 +616,9 @@ pub fn handle_puzzle_action_events(
                                 .get_mut(hole_entity)
                                 .expect("No Transform for the hole entity");
                             transform.translation = tile_translation_from_position(hole, size)
+                        }
+                        for mut visibility in action_tip_visibility.iter_mut() {
+                            *visibility = Visibility::Hidden;
                         }
                     }
                     MoveActiveLeft | MoveActiveRight | MoveActiveUp | MoveActiveDown => {
@@ -627,7 +740,18 @@ pub fn handle_puzzle_action_events(
                         tile_animation.push_transform_tween(tween);
                     }
                 }
-                puzzle.show_outlines(&mut outlines, puzzle_assets)
+                puzzle.show_outlines(&mut outlines, puzzle_assets);
+                //{
+                //    let active = puzzle.active;
+                //    let size = puzzle.size();
+                //    if let Some(mut action_tip_transform) = puzzle
+                //        .action_tip_entity
+                //        .and_then(|entity| transforms.get_mut(entity).ok())
+                //    {
+                //        action_tip_transform.translation =
+                //            tile_translation_from_position(active, size);
+                //    }
+                //}
             }
         }
     }
@@ -683,5 +807,76 @@ pub fn tile_animation(
             transform_animator.set_tweenable(Sequence::new([transform_tween]));
             mesh_animator.set_tweenable(Sequence::new([mesh_tween]));
         }
+    }
+}
+
+pub fn tile_on_click(
+    event: Listener<Pointer<Click>>,
+    mut puzzle_action_events: EventWriter<PuzzleAction>,
+    transforms: Query<&GlobalTransform>,
+) {
+    let tile_global_transform = transforms
+        .get(event.target)
+        .expect("No Transform for Tile")
+        .compute_transform();
+    // local_translation will have a [-0.5,0.5] range for x and y
+    let local_translation = (event.hit.position.unwrap() - tile_global_transform.translation)
+        / tile_global_transform.scale;
+    puzzle_action_events.send(action_from_tip_local(
+        local_translation.x,
+        local_translation.y,
+    ));
+}
+
+pub fn tile_on_moving_over(
+    event: Listener<Pointer<Move>>,
+    mut puzzle_action_events: EventWriter<PuzzleAction>,
+    mut transforms: Query<&mut Transform>,
+    global_transforms: Query<&GlobalTransform>,
+    mut action_tip: Query<(Entity, &mut Visibility), With<ActionTip>>,
+    puzzle_assets: Query<&PuzzleAssets>,
+    mut action_tip_icon_material: Query<&mut Handle<StandardMaterial>, With<ActionTipIcon>>,
+) {
+    puzzle_action_events.send(PuzzleAction::SetActive(event.target));
+    let tile_transform = *transforms.get(event.target).expect("No transform for tile");
+    if let Ok((entity, mut action_tip)) = action_tip.get_single_mut() {
+        *action_tip = Visibility::Inherited;
+        let mut action_transform = transforms
+            .get_mut(entity)
+            .expect("No transform for ActionTip");
+        action_transform.translation = tile_transform.translation;
+    }
+    // local_translation will have a [-0.5,0.5] range for x and y
+    let tile_global_transform = global_transforms
+        .get(event.target)
+        .expect("No Transform for Tile")
+        .compute_transform();
+    // local_translation will have a [-0.5,0.5] range for x and y
+    let local_translation = (event.hit.position.unwrap() - tile_global_transform.translation)
+        / tile_global_transform.scale;
+    let action = action_from_tip_local(local_translation.x, local_translation.y);
+    let puzzle_assets = puzzle_assets.single();
+    let mut action_tip_icon_material = action_tip_icon_material.single_mut();
+    *action_tip_icon_material = puzzle_assets
+        .action_tip_materials
+        .get(&action)
+        .unwrap_or_else(|| panic!("No icon for action {action:?}"))
+        .clone();
+}
+
+pub fn action_from_tip_local(x: f32, y: f32) -> PuzzleAction {
+    assert!((-0.5..=0.5).contains(&x), "Unexpected x:{x}");
+    assert!((-0.5..=0.5).contains(&y), "Unexpected y:{y}");
+    match ((x < -0.3, x > 0.3), (y < -0.3, y > 0.3)) {
+        ((true, false), (true, false)) => PuzzleAction::ActiveRotateCCW, // Left Down
+        ((true, false), (false, false)) => PuzzleAction::ActiveFlipX,    // Left Middle
+        ((true, false), (false, true)) => PuzzleAction::ActiveRotateCCW, // Left Up
+        ((false, false), (true, false)) => PuzzleAction::ActiveFlipY,    // Middle Down
+        ((false, false), (false, false)) => PuzzleAction::MoveActive,    // Middle Middle
+        ((false, false), (false, true)) => PuzzleAction::ActiveFlipY,    // Middle Up
+        ((false, true), (true, false)) => PuzzleAction::ActiveRotateCW,  // Right Down
+        ((false, true), (false, false)) => PuzzleAction::ActiveFlipX,    // Right Middle
+        ((false, true), (false, true)) => PuzzleAction::ActiveRotateCW,  // Right Up
+        _ => panic!("What ? x:{}, y:{}", x, y),
     }
 }

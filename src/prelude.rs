@@ -8,6 +8,11 @@ pub use bevy_mod_outline::*;
 pub use bevy_mod_picking::prelude::*;
 pub use bevy_tweening::*;
 
+pub const TILE_OCCUPANCY: f32 = 0.93;
+pub const Z_PUZZLE_TILE: f32 = 0.;
+pub const Z_PUZZLE_SOLUTION: f32 = 2.;
+pub const Z_PUZZLE_ACTION_TIP: f32 = 1.;
+
 pub const UI_HEADER_PX: f32 = 24.0;
 pub const UI_TEXT_COLOR: Color = Color::ANTIQUE_WHITE;
 pub const UI_COLOR_1: Color = Color::rgb(103. / 255., 91. / 255., 153. / 255.);
