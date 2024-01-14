@@ -59,7 +59,10 @@ fn main() {
             Update,
             puzzle_solve_interation.run_if(in_state(GameState::PuzzleSolve)),
         )
-        .add_systems(OnEnter(GameState::PuzzleSolve), puzzle_deblur)
+        .add_systems(
+            OnEnter(GameState::PuzzleSolve),
+            (spawn_puzzle_entities, puzzle_deblur),
+        )
         .add_systems(OnExit(GameState::PuzzleSolve), puzzle_blur)
         .add_systems(Update, show_fps)
         .run();

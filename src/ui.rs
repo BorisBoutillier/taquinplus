@@ -266,7 +266,9 @@ pub fn menu_event_handler(
                     _ => (1000, 1., 1.),
                 };
                 puzzle.shuffle(n_moves, flip_pct, rot_pct, rng);
-                commands.add(puzzle);
+                // Spawn a simple Entity with just a Puzzle
+                // All addition entities will be added in a dedicated system
+                commands.spawn(puzzle);
                 next_gamestate.set(GameState::PuzzleSolve);
             }
             MenuEntry::Exit => {

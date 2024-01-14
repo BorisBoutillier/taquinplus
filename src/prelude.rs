@@ -12,6 +12,8 @@ pub const TILE_OCCUPANCY: f32 = 0.93;
 pub const Z_PUZZLE_TILE: f32 = 0.;
 pub const Z_PUZZLE_SOLUTION: f32 = 2.;
 pub const Z_PUZZLE_ACTION_TIP: f32 = 1.;
+pub const ACTION_TIP_GRID_ALPHA: f32 = 0.2;
+pub const ACTION_TIP_ICON_ALPHA: f32 = 0.3;
 
 pub const UI_HEADER_PX: f32 = 24.0;
 pub const UI_TEXT_COLOR: Color = Color::ANTIQUE_WHITE;
