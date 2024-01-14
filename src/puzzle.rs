@@ -399,10 +399,20 @@ impl Command for Puzzle {
         self.hole_entity = Some(hole_entity);
         // Action tip entity
         let action_tip_material = {
+            let texture = {
+                let asset_server = world.get_resource::<AssetServer>().unwrap();
+                Some(asset_server.load("ActionTipFullGrid.png"))
+            };
             let mut materials = world
                 .get_resource_mut::<Assets<StandardMaterial>>()
                 .expect("No Resource Assets<StandardMaterial>");
-            materials.add(Color::rgba(1.0, 1.0, 1.0, 0.1).into())
+            materials.add(StandardMaterial {
+                base_color: Color::rgba(1.0, 1.0, 1.0, 1.0),
+                base_color_texture: texture,
+                alpha_mode: AlphaMode::Blend,
+                ..default()
+            })
+            //materials.add(Color::rgba(1.0, 1.0, 1.0, 0.1).into())
         };
         let action_tip_mesh = {
             let mut meshes = world
@@ -414,7 +424,7 @@ impl Command for Puzzle {
         let puzzle_action_tip = world
             .spawn((
                 SpatialBundle {
-                    transform: Transform::from_translation(Vec3::new(0., 0., Z_PUZZLE_SOLUTION)),
+                    transform: Transform::from_translation(Vec3::new(0., 0., Z_PUZZLE_ACTION_TIP)),
                     ..default()
                 },
                 Name::new("ActionTip"),
@@ -423,11 +433,7 @@ impl Command for Puzzle {
                 parent.spawn((
                     PbrBundle {
                         visibility: Visibility::Hidden,
-                        transform: tile_transform.with_translation(Vec3::new(
-                            0.,
-                            0.,
-                            Z_PUZZLE_ACTION_TIP,
-                        )),
+                        transform: tile_transform,
                         mesh: action_tip_mesh.clone(),
                         material: action_tip_material,
                         ..default()
@@ -437,21 +443,21 @@ impl Command for Puzzle {
                         should_block_lower: false,
                         should_emit_events: true,
                     },
-                            On::<Pointer<Out>>::run(
-                                |_event: Listener<Pointer<Out>>,
-                                 mut action_tip: Query<
-                                    &mut Visibility,
-                                    With<ActionTip>,
-                                >| {
-                                    if let Ok(mut action_tip) = action_tip.get_single_mut() {
-                                        *action_tip = Visibility::Hidden;
-                                    }
-                                },
+                    On::<Pointer<Out>>::run(
+                        |_event: Listener<Pointer<Out>>,
+                         mut action_tip: Query<
+                            &mut Visibility,
+                            With<ActionTip>,
+                        >| {
+                            if let Ok(mut action_tip) = action_tip.get_single_mut() {
+                                *action_tip = Visibility::Hidden;
+                            }
+                        },
                 )))
             .with_children(|parent| {
                 parent.spawn((
                     PbrBundle {
-                        transform: Transform::from_scale(Vec3::new(0.6,0.6,1.)),
+                        transform: Transform::from_scale(Vec3::new(0.6,0.6,1.)).with_translation(Vec3::new(0.0,0.0,0.1)),
                         mesh: action_tip_mesh,
                         ..default()
                     }, ActionTipIcon,Pickable::IGNORE)
