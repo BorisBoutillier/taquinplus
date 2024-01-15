@@ -7,36 +7,30 @@
     . Better separate action event handling between, entity and non-entity related parts
     . Better handle action counting, should be purely Puzzle internal
 . IMPROVEMNTS:
-    . Add proper support for non-square puzzles.
     . Test using a Violet outline to show misplaced+misoriented
     . Check how to improve separation between inherant puzzle content and display content.
-    
+    . Convert all Cube mesh to Quad, adapt the UV mapping function
+    . Support non-square image, taking the 'square' part of it for the puzzle, with an UV offset.
+    . Add a PuzzleSolve state:
+        . Start by showing full image animation
+        . Display score: Action/Time
+        . Trigger menu on any click/key stroke
+        . Menu allow to 'Back to results' (instead of Continue)
+
 . FEATURES:
+    . Add a complete PuzzleConfiguration struct
+    . Add support for random hole position
     . Add time keeping, in second but finally reported with 0.1s granularity
     . Add a 'Go' button with countdown to start ( bluring the puzzle ?), necessary for completion time scoring.
-    . Add support for non-solvable puzzle, provided as an array of image and score, and a final score.
     . Add a puzzle solver, than it run after the shuffling. Should reach minimal actions, so as to allow the user to compare.
     . Add solving viewer.
-    . Add support for random hole position
-    . Add a complete PuzzleConfiguration struct
     . Add a status bar, that display main keyboard actions for current gamestate.
-    . Add possibility to use a random image from https://picsum.photos/ ? attohttpc + Bevy::Image
-
-. UI:
-    . Puzzle creation menu:
-        FromImage:
-        . Image choice
-        . difficulty choice:
-            . size 
-            . flips ? / rotation ?
-            . shuffling steps SMALL MEDIUM FULL
-            . Hole position: bottomRight / Random.
-        . Helper levels:
-            . None
-            . Solution overlay
-            . Tile state: (Red/orange)
-            . Solution steps.
-        FromPreComputed:
-            . Choice from an available list
-            . Each entry contains metadata with its information ( size, flips ? , rotation ? , random hole ?)
-            . No helper available.
+    . Add a puzzle creation Menu:
+        . Image source: Local random/Random picsum
+        . Difficulty: Easy/Normal/Medium/Difficult/Insane/Custom:
+            Customizable:
+                . Size: 3x3 -> 7x7
+                . Possible actions: Sliding/Rotation/Flips
+                . Hole position: BottomRight/Random
+                . Helpers: Solver/Reference image/Errors/None
+    . Show in some way difficulty settings during puzzle solving

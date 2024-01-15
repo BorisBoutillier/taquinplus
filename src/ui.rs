@@ -261,20 +261,24 @@ pub fn menu_event_handler(
                     (3, 3)
                 };
                 println!("WEB request");
-                let image = if let Ok(bytes) = attohttpc::get("https://picsum.photos/1024.webp")
-                    .send()
-                    .and_then(|resp| resp.bytes())
-                {
-                    images.add(
-                        Image::from_buffer(
-                            &bytes,
-                            ImageType::Format(ImageFormat::WebP),
-                            CompressedImageFormats::NONE,
-                            true,
-                            ImageSampler::Default.clone(),
+                let image = if new_size != (3, 3) {
+                    if let Ok(bytes) = attohttpc::get("https://picsum.photos/1024.webp")
+                        .send()
+                        .and_then(|resp| resp.bytes())
+                    {
+                        images.add(
+                            Image::from_buffer(
+                                &bytes,
+                                ImageType::Format(ImageFormat::WebP),
+                                CompressedImageFormats::NONE,
+                                true,
+                                ImageSampler::Default.clone(),
+                            )
+                            .expect("Image could not be loaded"),
                         )
-                        .expect("Image could not be loaded"),
-                    )
+                    } else {
+                        asset_server.load("images/1.png")
+                    }
                 } else {
                     asset_server.load("images/1.png")
                 };

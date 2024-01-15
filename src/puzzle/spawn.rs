@@ -1,4 +1,4 @@
-use std::{collections::HashMap, f32::consts::PI};
+use std::collections::HashMap;
 
 use crate::prelude::*;
 
@@ -20,7 +20,7 @@ pub fn spawn_puzzle_entities(
         let size = puzzle.size();
         let tile_scale = {
             let scale = TILE_OCCUPANCY / (size.0.max(size.1) as f32);
-            Vec3::new(scale, scale, 5.)
+            Vec3::new(scale, scale, 1.)
         };
         let solved_tile_scale = {
             let scale = 1. / (size.0.max(size.1) as f32);
@@ -121,7 +121,7 @@ pub fn spawn_puzzle_entities(
                     PbrBundle {
                         visibility: Visibility::Hidden,
                         transform: tile_transform,
-                        mesh: meshes.add(Mesh::from(shape::Cube::new(1.0))),
+                        mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(1.0,1.0)))),
                         material: action_tip_material,
                         ..default()
                     },
@@ -145,10 +145,9 @@ pub fn spawn_puzzle_entities(
                 parent.spawn((
                     PbrBundle {
                         transform: Transform::from_scale(Vec3::new(0.5,0.5,1.))
-                            // Y PI rotation is the easiest to get a visible with a texture that matches directly the png
-                            .with_rotation(Quat::from_rotation_y(PI))
+                            // Slightly on top of the action_tip_grid parent to avoid clipping 
                             .with_translation(Vec3::new(0.0,0.0,0.1)),
-                        mesh: meshes.add(Mesh::from(shape::Cube::new(1.0))),
+                        mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(1.0,1.0)))),
                         ..default()
                     }, ActionTipIcon,Pickable::IGNORE)
             );});
