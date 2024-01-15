@@ -16,7 +16,8 @@ opt-level = 1
 opt-level = 3
 
 [dependencies]
-bevy = "0.12"
+attohttpc = "0.26.1"
+bevy = { version = "0.12", features=["webp"] }
 bevy-inspector-egui = "0.21.0"
 bevy_mod_outline = "0.6.0"
 bevy_mod_picking = "0.17.0"

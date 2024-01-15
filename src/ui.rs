@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-use bevy::app::AppExit;
+use bevy::{
+    app::AppExit,
+    render::texture::{CompressedImageFormats, ImageFormat, ImageSampler, ImageType},
+};
 use rand::thread_rng;
 
 use crate::prelude::*;
@@ -237,6 +240,7 @@ pub fn menu_event_handler(
     mut app_exit_events: EventWriter<AppExit>,
     mut next_gamestate: ResMut<NextState<GameState>>,
     asset_server: Res<AssetServer>,
+    mut images: ResMut<Assets<Image>>,
     puzzle: Query<(Entity, &Puzzle)>,
 ) {
     for menu_entry in menu_events.read() {
@@ -256,8 +260,25 @@ pub fn menu_event_handler(
                 } else {
                     (3, 3)
                 };
-                let mut puzzle =
-                    Puzzle::new(asset_server.load("images/1.png"), new_size.0, new_size.1);
+                println!("WEB request");
+                let image = if let Ok(bytes) = attohttpc::get("https://picsum.photos/1024.webp")
+                    .send()
+                    .and_then(|resp| resp.bytes())
+                {
+                    images.add(
+                        Image::from_buffer(
+                            &bytes,
+                            ImageType::Format(ImageFormat::WebP),
+                            CompressedImageFormats::NONE,
+                            true,
+                            ImageSampler::Default.clone(),
+                        )
+                        .expect("Image could not be loaded"),
+                    )
+                } else {
+                    asset_server.load("images/1.png")
+                };
+                let mut puzzle = Puzzle::new(image, new_size.0, new_size.1);
                 let rng = thread_rng();
                 let (n_moves, flip_pct, rot_pct) = match new_size.0 {
                     3 => (5, 0., 0.),
