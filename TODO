@@ -11,11 +11,8 @@
     . Check how to improve separation between inherant puzzle content and display content.
     . Convert all Cube mesh to Quad, adapt the UV mapping function
     . Support non-square image, taking the 'square' part of it for the puzzle, with an UV offset.
-    . Add a PuzzleSolve state:
-        . Start by showing full image animation
+    . Update PuzzleSolve state:
         . Display score: Action/Time
-        . Trigger menu on any click/key stroke
-        . Menu allow to 'Back to results' (instead of Continue)
 
 . FEATURES:
     . Add a complete PuzzleConfiguration struct

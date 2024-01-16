@@ -337,15 +337,13 @@ impl PuzzleAction {
 }
 
 pub fn handle_puzzle_action_events(
-    mut commands: Commands,
     mut events: EventReader<PuzzleAction>,
     mut puzzle: Query<(&mut Puzzle, &PuzzleAssets)>,
     mut transforms: Query<&mut Transform>,
     mut action_tip_visibility: Query<&mut Visibility, With<ActionTip>>,
     mut tile_animations: Query<&mut TileAnimation>,
     mut outlines: Query<&mut OutlineVolume>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut next_state: ResMut<NextState<GameState>>,
 ) {
     use PuzzleAction::*;
     for event in events.read() {
@@ -466,57 +464,71 @@ pub fn handle_puzzle_action_events(
                 puzzle.compute_solved();
                 if puzzle.is_solved {
                     println!("SOLVED in {} actions", puzzle.actions_count);
-                    for tile in puzzle.tiles.iter().filter_map(|tile| tile.as_ref()) {
-                        if let Some(entity) = tile.entity {
-                            let tween = Tween::new(
-                                EaseFunction::QuadraticInOut,
-                                Duration::from_millis(500),
-                                TransformScaleLens {
-                                    start: puzzle_assets.tile_scale,
-                                    end: puzzle_assets.solved_tile_scale,
-                                },
-                            );
-                            let mut tile_animation = tile_animations.get_mut(entity).expect("Oops");
-                            tile_animation.push_transform_tween(tween);
-                        }
-                    }
-                    let final_mesh =
-                        meshes.add(compute_tile_mesh(puzzle.size(), puzzle.hole, false, false));
-                    let final_material = materials.add(StandardMaterial {
-                        base_color_texture: Some(puzzle.image.clone()),
-                        reflectance: 0.0,
-                        ..default()
-                    });
-                    if let Some(entity) = puzzle.hole_entity {
-                        commands
-                            .entity(entity)
-                            .insert(final_mesh)
-                            .insert(final_material);
-                        let tween = Tween::new(
-                            EaseFunction::QuadraticInOut,
-                            Duration::from_millis(500),
-                            TransformScaleLens {
-                                start: Vec3::new(0.0, 0.0, puzzle_assets.tile_scale.z),
-                                end: puzzle_assets.solved_tile_scale,
-                            },
-                        );
-                        let mut tile_animation = tile_animations.get_mut(entity).expect("Oops");
-                        tile_animation.push_transform_tween(tween);
-                    }
+                    next_state.set(GameState::PuzzleSolved);
                 }
                 puzzle.show_outlines(&mut outlines, puzzle_assets);
-                //{
-                //    let active = puzzle.active;
-                //    let size = puzzle.size();
-                //    if let Some(mut action_tip_transform) = puzzle
-                //        .action_tip_entity
-                //        .and_then(|entity| transforms.get_mut(entity).ok())
-                //    {
-                //        action_tip_transform.translation =
-                //            tile_translation_from_position(active, size);
-                //    }
-                //}
             }
+        }
+    }
+}
+
+pub fn show_full_puzzle(
+    mut commands: Commands,
+    // Restrict to Changed Puzzle, so that full size animation only happens once.
+    // In particular we don't want to re-animate on called after a Menu::Show.
+    puzzle: Query<(&Puzzle, &PuzzleAssets), Changed<Puzzle>>,
+    mut action_tip_visibility: Query<&mut Visibility, With<ActionTip>>,
+    mut tile_animations: Query<&mut TileAnimation>,
+    mut outlines: Query<&mut OutlineVolume>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    // Hide all action tips, and all outlines
+    for mut visibility in action_tip_visibility.iter_mut() {
+        *visibility = Visibility::Hidden;
+    }
+    for mut outline in outlines.iter_mut() {
+        outline.visible = false;
+    }
+    // Animate all puzzle to reach their full size
+    // Change the 'hole' tile to contain its image part.
+    if let Ok((puzzle, puzzle_assets)) = puzzle.get_single() {
+        for tile in puzzle.tiles.iter().filter_map(|tile| tile.as_ref()) {
+            if let Some(entity) = tile.entity {
+                let tween = Tween::new(
+                    EaseFunction::QuadraticInOut,
+                    Duration::from_millis(500),
+                    TransformScaleLens {
+                        start: puzzle_assets.tile_scale,
+                        end: puzzle_assets.solved_tile_scale,
+                    },
+                );
+                let mut tile_animation = tile_animations.get_mut(entity).expect("Oops");
+                tile_animation.push_transform_tween(tween);
+            }
+        }
+        if let Some(entity) = puzzle.hole_entity {
+            let final_hole_mesh =
+                meshes.add(compute_tile_mesh(puzzle.size(), puzzle.hole, false, false));
+            let final_hole_material = materials.add(StandardMaterial {
+                base_color_texture: Some(puzzle.image.clone()),
+                reflectance: 0.0,
+                ..default()
+            });
+            commands
+                .entity(entity)
+                .insert(final_hole_mesh)
+                .insert(final_hole_material);
+            let tween = Tween::new(
+                EaseFunction::QuadraticInOut,
+                Duration::from_millis(500),
+                TransformScaleLens {
+                    start: Vec3::new(0.0, 0.0, puzzle_assets.tile_scale.z),
+                    end: puzzle_assets.solved_tile_scale,
+                },
+            );
+            let mut tile_animation = tile_animations.get_mut(entity).expect("Oops");
+            tile_animation.push_transform_tween(tween);
         }
     }
 }
@@ -645,5 +657,107 @@ pub fn action_from_tip_local(x: f32, y: f32) -> PuzzleAction {
         ((false, true), (false, false)) => PuzzleAction::ActiveFlipX,    // Right Middle
         ((false, true), (false, true)) => PuzzleAction::ActiveRotateCW,  // Right Up
         _ => panic!("What ? x:{}, y:{}", x, y),
+    }
+}
+
+const PUZZLE_SOLVED_EXIT: [KeyCode; 3] = [KeyCode::Return, KeyCode::Space, KeyCode::Escape];
+
+pub fn puzzle_solving_interaction(
+    mut puzzle_solution: Query<&mut Visibility, (With<PuzzleSolution>, Without<PuzzleTiles>)>,
+    mut puzzle_tiles: Query<&mut Visibility, With<PuzzleTiles>>,
+    mut puzzle: Query<(&mut Puzzle, &PuzzleAssets)>,
+    mut outlines: Query<&mut OutlineVolume>,
+    input: Res<Input<KeyCode>>,
+    mouse_button: Res<Input<MouseButton>>,
+    mut puzzle_move_events: EventWriter<PuzzleAction>,
+    mut next_gamestate: ResMut<NextState<GameState>>,
+) {
+    if input.just_pressed(KeyCode::A) || input.just_pressed(KeyCode::D) {
+        puzzle_move_events.send(PuzzleAction::ActiveFlipX);
+    }
+    if input.just_pressed(KeyCode::W) || input.just_pressed(KeyCode::S) {
+        puzzle_move_events.send(PuzzleAction::ActiveFlipY);
+    }
+    if input.just_pressed(KeyCode::Q) {
+        puzzle_move_events.send(PuzzleAction::ActiveRotateCCW);
+    }
+    if input.just_pressed(KeyCode::E) {
+        puzzle_move_events.send(PuzzleAction::ActiveRotateCW);
+    }
+    if input.just_pressed(KeyCode::Right) {
+        if input.pressed(KeyCode::ShiftLeft) {
+            puzzle_move_events.send(PuzzleAction::MoveActiveRight);
+        } else {
+            puzzle_move_events.send(PuzzleAction::MoveRight);
+        }
+    }
+    if input.just_pressed(KeyCode::Left) {
+        if input.pressed(KeyCode::ShiftLeft) {
+            puzzle_move_events.send(PuzzleAction::MoveActiveLeft);
+        } else {
+            puzzle_move_events.send(PuzzleAction::MoveLeft);
+        }
+    }
+    if input.just_pressed(KeyCode::Up) {
+        if input.pressed(KeyCode::ShiftLeft) {
+            puzzle_move_events.send(PuzzleAction::MoveActiveUp);
+        } else {
+            puzzle_move_events.send(PuzzleAction::MoveUp);
+        }
+    }
+    if input.just_pressed(KeyCode::Down) {
+        if input.pressed(KeyCode::ShiftLeft) {
+            puzzle_move_events.send(PuzzleAction::MoveActiveDown);
+        } else {
+            puzzle_move_events.send(PuzzleAction::MoveDown);
+        }
+    }
+    // Handle display of the solution overlay pressing/releasing a key
+    // Beware that some kind of puzzle don't have a solution that can be shown
+    if input.just_pressed(KeyCode::ControlLeft) {
+        if let Ok((puzzle, _)) = puzzle.get_single() {
+            if !puzzle.is_solved {
+                for mut solution in puzzle_solution.iter_mut() {
+                    *solution = Visibility::Visible;
+                }
+                for mut tiles in puzzle_tiles.iter_mut() {
+                    *tiles = Visibility::Hidden;
+                }
+            }
+        }
+    }
+    if input.just_released(KeyCode::ControlLeft) {
+        for mut solution in puzzle_solution.iter_mut() {
+            *solution = Visibility::Hidden;
+        }
+        for mut tiles in puzzle_tiles.iter_mut() {
+            *tiles = Visibility::Visible;
+        }
+    }
+    if input.just_pressed(KeyCode::Space) {
+        if let Ok((mut puzzle, puzzle_assets)) = puzzle.get_single_mut() {
+            puzzle.show_errors = true;
+            puzzle.show_outlines(&mut outlines, puzzle_assets);
+        }
+    }
+    if input.just_released(KeyCode::Space) {
+        if let Ok((mut puzzle, puzzle_assets)) = puzzle.get_single_mut() {
+            puzzle.show_errors = false;
+            puzzle.show_outlines(&mut outlines, puzzle_assets);
+        }
+    }
+    if input.just_pressed(KeyCode::Escape) || mouse_button.just_pressed(MouseButton::Right) {
+        next_gamestate.set(GameState::Menu);
+    }
+}
+pub fn puzzle_solved_interaction(
+    input: Res<Input<KeyCode>>,
+    mouse_button: Res<Input<MouseButton>>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    if input.any_just_pressed(PUZZLE_SOLVED_EXIT)
+        || mouse_button.any_just_pressed([MouseButton::Left, MouseButton::Right])
+    {
+        next_state.set(GameState::Menu);
     }
 }

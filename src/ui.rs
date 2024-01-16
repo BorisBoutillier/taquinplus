@@ -71,12 +71,24 @@ pub fn update_ui_header(
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct Menu {
     buttons: Vec<(MenuEntry, Entity)>,
     active: usize,
+    escape_entry: Option<MenuEntry>,
 }
 impl Menu {
+    pub fn new(buttons: Vec<(MenuEntry, Entity)>) -> Self {
+        let escape_entry = buttons
+            .iter()
+            .find(|(entry, _)| entry == &MenuEntry::Continue || entry == &MenuEntry::Show)
+            .map(|(entry, _)| *entry);
+        Self {
+            buttons,
+            active: 0,
+            escape_entry,
+        }
+    }
     pub fn set_active(&mut self, menu_entry: &MenuEntry) {
         if let Some(i) = self
             .buttons
@@ -95,9 +107,13 @@ impl Menu {
     pub fn get_active_entry(&self) -> MenuEntry {
         self.buttons[self.active].0
     }
+    pub fn get_escape_entry(&self) -> Option<MenuEntry> {
+        self.escape_entry
+    }
 }
-#[derive(Component, Clone, Copy, PartialEq, Eq, Event)]
+#[derive(Component, Clone, Copy, PartialEq, Eq, Event, Debug)]
 pub enum MenuEntry {
+    Show,
     Continue,
     NewPuzzle,
     Exit,
@@ -106,6 +122,7 @@ impl MenuEntry {
     pub fn button_text(&self) -> String {
         use MenuEntry::*;
         match self {
+            Show => "Show",
             Continue => "Continue",
             NewPuzzle => "New Puzzle",
             Exit => "Exit",
@@ -116,8 +133,14 @@ impl MenuEntry {
 
 pub fn setup_menu(mut commands: Commands, puzzle: Query<&Puzzle>) {
     let mut button_entries = vec![];
-    if puzzle.get_single().is_ok_and(|puzzle| !puzzle.is_solved) {
-        button_entries.push(MenuEntry::Continue);
+    let puzzle = puzzle.get_single();
+
+    if puzzle.is_ok() {
+        button_entries.push(if puzzle.as_ref().is_ok_and(|puzzle| puzzle.is_solved) {
+            MenuEntry::Show
+        } else {
+            MenuEntry::Continue
+        });
     }
     button_entries.push(MenuEntry::NewPuzzle);
     #[cfg(not(target_family = "wasm"))]
@@ -179,7 +202,7 @@ pub fn setup_menu(mut commands: Commands, puzzle: Query<&Puzzle>) {
                 .map(|(_, entity)| *entity)
                 .collect::<Vec<_>>(),
         )
-        .insert(Menu { buttons, active: 0 });
+        .insert(Menu::new(buttons));
 }
 
 pub fn despawn_menu(mut commands: Commands, menu: Query<Entity, With<Menu>>) {
@@ -209,6 +232,7 @@ pub fn menu_interaction(
     mut menu: Query<&mut Menu>,
     button_interaction: Query<(&Interaction, &MenuEntry)>,
     input: Res<Input<KeyCode>>,
+    mouse_button: Res<Input<MouseButton>>,
     mut menu_events: EventWriter<MenuEntry>,
 ) {
     for (interaction, menu_entry) in button_interaction.iter() {
@@ -229,8 +253,13 @@ pub fn menu_interaction(
     if input.just_pressed(KeyCode::Up) {
         menu.single_mut().set_prev_active();
     }
-    if input.just_pressed(KeyCode::Return) {
+    if input.just_pressed(KeyCode::Return) || input.just_pressed(KeyCode::Space) {
         menu_events.send(menu.single().get_active_entry());
+    }
+    if input.just_pressed(KeyCode::Escape) || mouse_button.just_pressed(MouseButton::Right) {
+        if let Some(entry) = menu.single().get_escape_entry() {
+            menu_events.send(entry);
+        }
     }
 }
 
@@ -246,7 +275,10 @@ pub fn menu_event_handler(
     for menu_entry in menu_events.read() {
         match menu_entry {
             MenuEntry::Continue => {
-                next_gamestate.set(GameState::PuzzleSolve);
+                next_gamestate.set(GameState::PuzzleSolving);
+            }
+            MenuEntry::Show => {
+                next_gamestate.set(GameState::PuzzleSolved);
             }
             MenuEntry::NewPuzzle => {
                 let new_size = if let Ok((entity, puzzle)) = puzzle.get_single() {
@@ -260,25 +292,30 @@ pub fn menu_event_handler(
                 } else {
                     (3, 3)
                 };
-                println!("WEB request");
                 let image = if new_size != (3, 3) {
-                    if let Ok(bytes) = attohttpc::get("https://picsum.photos/1024.webp")
-                        .send()
-                        .and_then(|resp| resp.bytes())
+                    #[cfg(not(target_family = "wasm"))]
                     {
-                        images.add(
-                            Image::from_buffer(
-                                &bytes,
-                                ImageType::Format(ImageFormat::WebP),
-                                CompressedImageFormats::NONE,
-                                true,
-                                ImageSampler::Default.clone(),
+                        println!("FETCH any image from web");
+                        if let Ok(bytes) = attohttpc::get("https://picsum.photos/1024.webp")
+                            .send()
+                            .and_then(|resp| resp.bytes())
+                        {
+                            images.add(
+                                Image::from_buffer(
+                                    &bytes,
+                                    ImageType::Format(ImageFormat::WebP),
+                                    CompressedImageFormats::NONE,
+                                    true,
+                                    ImageSampler::Default.clone(),
+                                )
+                                .expect("Image could not be loaded"),
                             )
-                            .expect("Image could not be loaded"),
-                        )
-                    } else {
-                        asset_server.load("images/1.png")
+                        } else {
+                            asset_server.load("images/1.png")
+                        }
                     }
+                    #[cfg(target_family = "wasm")]
+                    asset_server.load("images/1.png")
                 } else {
                     asset_server.load("images/1.png")
                 };
@@ -294,7 +331,7 @@ pub fn menu_event_handler(
                 // Spawn a simple Entity with just a Puzzle
                 // All addition entities will be added in a dedicated system
                 commands.spawn(puzzle);
-                next_gamestate.set(GameState::PuzzleSolve);
+                next_gamestate.set(GameState::PuzzleSolving);
             }
             MenuEntry::Exit => {
                 app_exit_events.send(AppExit);

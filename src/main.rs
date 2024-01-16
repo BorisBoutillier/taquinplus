@@ -57,13 +57,16 @@ fn main() {
         )
         .add_systems(
             Update,
-            puzzle_solve_interation.run_if(in_state(GameState::PuzzleSolve)),
+            puzzle_solving_interaction.run_if(in_state(GameState::PuzzleSolving)),
         )
+        .add_systems(OnEnter(GameState::PuzzleSolving), spawn_puzzle_entities)
+        .add_systems(OnEnter(GameState::Menu), puzzle_blur)
+        .add_systems(OnExit(GameState::Menu), puzzle_deblur)
+        .add_systems(OnEnter(GameState::PuzzleSolved), show_full_puzzle)
         .add_systems(
-            OnEnter(GameState::PuzzleSolve),
-            (spawn_puzzle_entities, puzzle_deblur),
+            Update,
+            puzzle_solved_interaction.run_if(in_state(GameState::PuzzleSolved)),
         )
-        .add_systems(OnExit(GameState::PuzzleSolve), puzzle_blur)
         .add_systems(Update, show_fps)
         .run();
 }
@@ -89,93 +92,6 @@ fn setup(mut commands: Commands) {
     });
 }
 
-fn puzzle_solve_interation(
-    mut puzzle_solution: Query<&mut Visibility, (With<PuzzleSolution>, Without<PuzzleTiles>)>,
-    mut puzzle_tiles: Query<&mut Visibility, With<PuzzleTiles>>,
-    mut puzzle: Query<(&mut Puzzle, &PuzzleAssets)>,
-    mut outlines: Query<&mut OutlineVolume>,
-    input: Res<Input<KeyCode>>,
-    mut puzzle_move_events: EventWriter<PuzzleAction>,
-    mut next_gamestate: ResMut<NextState<GameState>>,
-) {
-    if input.just_pressed(KeyCode::A) || input.just_pressed(KeyCode::D) {
-        puzzle_move_events.send(PuzzleAction::ActiveFlipX);
-    }
-    if input.just_pressed(KeyCode::W) || input.just_pressed(KeyCode::S) {
-        puzzle_move_events.send(PuzzleAction::ActiveFlipY);
-    }
-    if input.just_pressed(KeyCode::Q) {
-        puzzle_move_events.send(PuzzleAction::ActiveRotateCCW);
-    }
-    if input.just_pressed(KeyCode::E) {
-        puzzle_move_events.send(PuzzleAction::ActiveRotateCW);
-    }
-    if input.just_pressed(KeyCode::Right) {
-        if input.pressed(KeyCode::ShiftLeft) {
-            puzzle_move_events.send(PuzzleAction::MoveActiveRight);
-        } else {
-            puzzle_move_events.send(PuzzleAction::MoveRight);
-        }
-    }
-    if input.just_pressed(KeyCode::Left) {
-        if input.pressed(KeyCode::ShiftLeft) {
-            puzzle_move_events.send(PuzzleAction::MoveActiveLeft);
-        } else {
-            puzzle_move_events.send(PuzzleAction::MoveLeft);
-        }
-    }
-    if input.just_pressed(KeyCode::Up) {
-        if input.pressed(KeyCode::ShiftLeft) {
-            puzzle_move_events.send(PuzzleAction::MoveActiveUp);
-        } else {
-            puzzle_move_events.send(PuzzleAction::MoveUp);
-        }
-    }
-    if input.just_pressed(KeyCode::Down) {
-        if input.pressed(KeyCode::ShiftLeft) {
-            puzzle_move_events.send(PuzzleAction::MoveActiveDown);
-        } else {
-            puzzle_move_events.send(PuzzleAction::MoveDown);
-        }
-    }
-    // Handle display of the solution overlay pressing/releasing a key
-    // Beware that some kind of puzzle don't have a solution that can be shown
-    if input.just_pressed(KeyCode::ControlLeft) {
-        if let Ok((puzzle, _)) = puzzle.get_single() {
-            if !puzzle.is_solved {
-                for mut solution in puzzle_solution.iter_mut() {
-                    *solution = Visibility::Visible;
-                }
-                for mut tiles in puzzle_tiles.iter_mut() {
-                    *tiles = Visibility::Hidden;
-                }
-            }
-        }
-    }
-    if input.just_released(KeyCode::ControlLeft) {
-        for mut solution in puzzle_solution.iter_mut() {
-            *solution = Visibility::Hidden;
-        }
-        for mut tiles in puzzle_tiles.iter_mut() {
-            *tiles = Visibility::Visible;
-        }
-    }
-    if input.just_pressed(KeyCode::Space) {
-        if let Ok((mut puzzle, puzzle_assets)) = puzzle.get_single_mut() {
-            puzzle.show_errors = true;
-            puzzle.show_outlines(&mut outlines, puzzle_assets);
-        }
-    }
-    if input.just_released(KeyCode::Space) {
-        if let Ok((mut puzzle, puzzle_assets)) = puzzle.get_single_mut() {
-            puzzle.show_errors = false;
-            puzzle.show_outlines(&mut outlines, puzzle_assets);
-        }
-    }
-    if input.just_pressed(KeyCode::Escape) {
-        next_gamestate.set(GameState::Menu);
-    }
-}
 fn puzzle_resize(
     primary_window: Query<&Window, With<PrimaryWindow>>,
     mut puzzle_transform: Query<&mut Transform, With<Puzzle>>,
@@ -195,7 +111,7 @@ fn puzzle_resize(
 }
 
 fn show_fps(input: Res<Input<KeyCode>>, diag: Res<DiagnosticsStore>) {
-    if input.just_pressed(KeyCode::F) {
+    if input.just_pressed(KeyCode::F11) {
         if let Some(fps) = diag
             .get(FrameTimeDiagnosticsPlugin::FPS)
             .and_then(|fps| fps.smoothed())

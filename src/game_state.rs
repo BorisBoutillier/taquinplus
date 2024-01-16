@@ -4,5 +4,6 @@ use crate::prelude::*;
 pub enum GameState {
     #[default]
     Menu,
-    PuzzleSolve,
+    PuzzleSolving,
+    PuzzleSolved,
 }
