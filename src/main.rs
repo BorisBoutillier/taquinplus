@@ -21,6 +21,8 @@ fn main() {
             primary_window: Some(Window {
                 title: "TaquinPlus".to_string(),
                 resolution: [800.0, 600.0].into(),
+                resizable: true,
+                fit_canvas_to_parent: true,
                 ..default()
             }),
             ..default()
@@ -95,14 +97,15 @@ fn setup(mut commands: Commands) {
 fn puzzle_resize(
     primary_window: Query<&Window, With<PrimaryWindow>>,
     mut puzzle_transform: Query<&mut Transform, With<Puzzle>>,
-    added_puzzle: Query<(), Added<Puzzle>>,
-    resize_events: EventReader<WindowResized>,
+    added_puzzle: Query<(), (With<Puzzle>, Added<GlobalTransform>)>,
+    mut resize_events: EventReader<WindowResized>,
 ) {
     if !resize_events.is_empty() || !added_puzzle.is_empty() {
+        resize_events.clear();
         if let Ok(mut puzzle_transform) = puzzle_transform.get_single_mut() {
             let primary_window = primary_window.single();
-            let height = primary_window.resolution.physical_height() as f32 - UI_HEADER_PX;
-            let width = primary_window.resolution.physical_width() as f32;
+            let height = primary_window.height() - UI_HEADER_PX;
+            let width = primary_window.width();
             let min = 0.95 * height.min(width);
             puzzle_transform.scale = Vec3::new(min, min, 1.);
             puzzle_transform.translation.y = -UI_HEADER_PX / 2.;
@@ -116,7 +119,7 @@ fn show_fps(input: Res<Input<KeyCode>>, diag: Res<DiagnosticsStore>) {
             .get(FrameTimeDiagnosticsPlugin::FPS)
             .and_then(|fps| fps.smoothed())
         {
-            println!("FPS: {:.1}", fps);
+            info!("FPS: {:.1}", fps);
         }
     }
 }
