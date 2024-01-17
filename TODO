@@ -1,7 +1,4 @@
 . BUGS:
-    . Fullscreen mode on itch.io does not resize the wasm. Probably on the js/html side.
-      "Can search for itch fullscreen in bevy discord for some discussions"
-    . WASM build on itch.io has size issues.
 . CLEANING:
     . Better separate action event handling between, entity and non-entity related parts
     . Better handle action counting, should be purely Puzzle internal
