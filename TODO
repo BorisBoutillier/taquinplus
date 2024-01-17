@@ -6,7 +6,6 @@
     . Better separate action event handling between, entity and non-entity related parts
     . Better handle action counting, should be purely Puzzle internal
 . IMPROVEMNTS:
-    . Test using a Violet outline to show misplaced+misoriented
     . Check how to improve separation between inherant puzzle content and display content.
     . Convert all Cube mesh to Quad, adapt the UV mapping function
     . Support non-square image, taking the 'square' part of it for the puzzle, with an UV offset.

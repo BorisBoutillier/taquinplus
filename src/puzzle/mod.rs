@@ -42,6 +42,8 @@ pub struct PuzzleAssets {
     tile_scale: Vec3,
     // scale used by each tile when the puzzle is solved
     solved_tile_scale: Vec3,
+    // Color of the tile outline when the tile is both misplaced and misoriented
+    outline_color_misplaced_misoriented: Color,
     // Color of the tile outline when the tile is misplaced
     outline_color_misplaced: Color,
     // Color of the tile outline when the tile is misoriented
@@ -269,11 +271,12 @@ impl Puzzle {
                         outline.visible =
                             !self.is_solved && (show_active || show_misplaced || show_misoriented);
                         outline.colour = match (show_misplaced, show_misoriented) {
-                            (true, _) => assets.outline_color_misplaced,
-                            (_, true) => assets.outline_color_misoriented,
+                            (true, true) => assets.outline_color_misplaced_misoriented,
+                            (true, false) => assets.outline_color_misplaced,
+                            (false, true) => assets.outline_color_misoriented,
                             _ => assets.outline_color_active,
                         };
-                        outline.width = if show_active { 1.0 } else { 2.0 };
+                        outline.width = if show_active { 1.0 } else { 3.0 };
                     }
                 }
             }

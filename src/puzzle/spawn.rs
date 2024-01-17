@@ -271,8 +271,9 @@ pub fn spawn_puzzle_entities(
                 tile_scale,
                 solved_tile_scale,
                 outline_color_active: Color::WHITE,
-                outline_color_misoriented: Color::ORANGE,
+                outline_color_misplaced_misoriented: Color::PURPLE,
                 outline_color_misplaced: Color::RED,
+                outline_color_misoriented: Color::ORANGE,
                 action_tip_materials,
             })
             .add_child(puzzle_solution)
