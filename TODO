@@ -7,14 +7,13 @@
     . Better handle action counting, should be purely Puzzle internal
 . IMPROVEMNTS:
     . Check how to improve separation between inherant puzzle content and display content.
-    . Convert all Cube mesh to Quad, adapt the UV mapping function
     . Support non-square image, taking the 'square' part of it for the puzzle, with an UV offset.
     . Update PuzzleSolve state:
         . Display score: Action/Time
+    . Convert all Cube mesh to Quad, adapt the UV mapping function, but requires change for Outlines.
 
 . FEATURES:
     . Add a complete PuzzleConfiguration struct
-    . Add support for random hole position
     . Add time keeping, in second but finally reported with 0.1s granularity
     . Add a 'Go' button with countdown to start ( bluring the puzzle ?), necessary for completion time scoring.
     . Add a puzzle solver, than it run after the shuffling. Should reach minimal actions, so as to allow the user to compare.

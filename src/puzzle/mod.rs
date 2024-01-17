@@ -67,8 +67,18 @@ pub struct Puzzle {
     pub actions_count: usize,
 }
 impl Puzzle {
-    pub fn new(image: Handle<Image>, width: usize, height: usize) -> Self {
-        let hole = (0, width - 1);
+    pub fn new(
+        image: Handle<Image>,
+        width: usize,
+        height: usize,
+        random_hole: bool,
+        mut rng: impl RngCore,
+    ) -> Self {
+        let hole = if random_hole {
+            (rng.gen_range(0..height), rng.gen_range(0..width))
+        } else {
+            (0, width - 1)
+        };
         let puzzle_size = (height, width);
         let tiles = Grid::from_vec(
             (0..height)

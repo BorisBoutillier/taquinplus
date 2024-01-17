@@ -319,8 +319,9 @@ pub fn menu_event_handler(
                 } else {
                     asset_server.load("images/1.png")
                 };
-                let mut puzzle = Puzzle::new(image, new_size.0, new_size.1);
-                let rng = thread_rng();
+                let random_hole = !matches!(new_size, (3, 3) | (4, 4));
+                let mut rng = thread_rng();
+                let mut puzzle = Puzzle::new(image, new_size.0, new_size.1, random_hole, &mut rng);
                 let (n_moves, flip_pct, rot_pct) = match new_size.0 {
                     3 => (5, 0., 0.),
                     4 => (20, 0., 0.),
