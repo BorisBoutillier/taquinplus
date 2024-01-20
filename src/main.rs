@@ -6,7 +6,6 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_tweening::TweeningPlugin;
 
 mod game_state;
-mod gaussian_blur;
 mod prelude;
 mod puzzle;
 mod tile;

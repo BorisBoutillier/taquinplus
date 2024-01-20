@@ -347,10 +347,7 @@ pub fn puzzle_deblur(
     let tween = Tween::new(
         EaseFunction::QuadraticInOut,
         Duration::from_millis(BLUR_ANIMATION_DURATION),
-        GaussianBlurLens {
-            start: BLUR,
-            end: NO_BLUR,
-        },
+        GaussianBlurLens::new(BLUR, GaussianBlurSettings::NO_BLUR),
     );
     let camera_entity = camera.single();
     commands.entity(camera_entity).insert(Animator::new(tween));
@@ -362,10 +359,7 @@ pub fn puzzle_blur(
     let tween = Tween::new(
         EaseFunction::QuadraticInOut,
         Duration::from_millis(BLUR_ANIMATION_DURATION),
-        GaussianBlurLens {
-            start: NO_BLUR,
-            end: BLUR,
-        },
+        GaussianBlurLens::new(GaussianBlurSettings::NO_BLUR, BLUR),
     );
     let camera_entity = camera.single();
     commands.entity(camera_entity).insert(Animator::new(tween));
