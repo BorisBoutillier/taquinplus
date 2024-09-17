@@ -16,16 +16,16 @@ pub const ACTION_TIP_GRID_ALPHA: f32 = 0.2;
 pub const ACTION_TIP_ICON_ALPHA: f32 = 0.3;
 
 pub const UI_HEADER_PX: f32 = 24.0;
-pub const UI_TEXT_COLOR: Color = Color::ANTIQUE_WHITE;
-pub const UI_COLOR_1: Color = Color::rgb(103. / 255., 91. / 255., 153. / 255.);
-pub const UI_COLOR_2: Color = Color::rgb(78. / 255., 68. / 255., 122. / 255.);
-pub const UI_COLOR_3: Color = Color::rgb(44. / 255., 39. / 255., 69. / 255.);
-pub const MAIN_BACKGROUND_COLOR: Color = Color::rgb(39. / 255., 34. / 255., 61. / 255.);
+pub const UI_TEXT_COLOR: Color = Color::Srgba(bevy::color::palettes::css::ANTIQUE_WHITE);
+pub const UI_COLOR_1: Color = Color::srgb(103. / 255., 91. / 255., 153. / 255.);
+pub const UI_COLOR_2: Color = Color::srgb(78. / 255., 68. / 255., 122. / 255.);
+pub const UI_COLOR_3: Color = Color::srgb(44. / 255., 39. / 255., 69. / 255.);
+pub const MAIN_BACKGROUND_COLOR: Color = Color::srgb(39. / 255., 34. / 255., 61. / 255.);
 
 pub const BLUR_ANIMATION_DURATION: u64 = 300;
 pub const ACTION_ANIMATION_DURATION: u64 = 150;
 
 pub const BLUR: GaussianBlurSettings = GaussianBlurSettings {
-    sigma: 15.0,
-    kernel_size: KernelSize::Auto,
+    kernel_size: 31,
+    sampling_distance_factor: 1.0,
 };

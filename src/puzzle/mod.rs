@@ -673,52 +673,52 @@ pub fn action_from_tip_local(x: f32, y: f32) -> PuzzleAction {
     }
 }
 
-const PUZZLE_SOLVED_EXIT: [KeyCode; 3] = [KeyCode::Return, KeyCode::Space, KeyCode::Escape];
+const PUZZLE_SOLVED_EXIT: [KeyCode; 3] = [KeyCode::Enter, KeyCode::Space, KeyCode::Escape];
 
 pub fn puzzle_solving_interaction(
     mut puzzle_solution: Query<&mut Visibility, (With<PuzzleSolution>, Without<PuzzleTiles>)>,
     mut puzzle_tiles: Query<&mut Visibility, With<PuzzleTiles>>,
     mut puzzle: Query<(&mut Puzzle, &PuzzleAssets)>,
     mut outlines: Query<&mut OutlineVolume>,
-    input: Res<Input<KeyCode>>,
-    mouse_button: Res<Input<MouseButton>>,
+    input: Res<ButtonInput<KeyCode>>,
+    mouse_button: Res<ButtonInput<MouseButton>>,
     mut puzzle_move_events: EventWriter<PuzzleAction>,
     mut next_gamestate: ResMut<NextState<GameState>>,
 ) {
-    if input.just_pressed(KeyCode::A) || input.just_pressed(KeyCode::D) {
+    if input.just_pressed(KeyCode::KeyA) || input.just_pressed(KeyCode::KeyD) {
         puzzle_move_events.send(PuzzleAction::ActiveFlipX);
     }
-    if input.just_pressed(KeyCode::W) || input.just_pressed(KeyCode::S) {
+    if input.just_pressed(KeyCode::KeyW) || input.just_pressed(KeyCode::KeyS) {
         puzzle_move_events.send(PuzzleAction::ActiveFlipY);
     }
-    if input.just_pressed(KeyCode::Q) {
+    if input.just_pressed(KeyCode::KeyQ) {
         puzzle_move_events.send(PuzzleAction::ActiveRotateCCW);
     }
-    if input.just_pressed(KeyCode::E) {
+    if input.just_pressed(KeyCode::KeyE) {
         puzzle_move_events.send(PuzzleAction::ActiveRotateCW);
     }
-    if input.just_pressed(KeyCode::Right) {
+    if input.just_pressed(KeyCode::ArrowRight) {
         if input.pressed(KeyCode::ShiftLeft) {
             puzzle_move_events.send(PuzzleAction::MoveActiveRight);
         } else {
             puzzle_move_events.send(PuzzleAction::MoveRight);
         }
     }
-    if input.just_pressed(KeyCode::Left) {
+    if input.just_pressed(KeyCode::ArrowLeft) {
         if input.pressed(KeyCode::ShiftLeft) {
             puzzle_move_events.send(PuzzleAction::MoveActiveLeft);
         } else {
             puzzle_move_events.send(PuzzleAction::MoveLeft);
         }
     }
-    if input.just_pressed(KeyCode::Up) {
+    if input.just_pressed(KeyCode::ArrowUp) {
         if input.pressed(KeyCode::ShiftLeft) {
             puzzle_move_events.send(PuzzleAction::MoveActiveUp);
         } else {
             puzzle_move_events.send(PuzzleAction::MoveUp);
         }
     }
-    if input.just_pressed(KeyCode::Down) {
+    if input.just_pressed(KeyCode::ArrowDown) {
         if input.pressed(KeyCode::ShiftLeft) {
             puzzle_move_events.send(PuzzleAction::MoveActiveDown);
         } else {
@@ -764,8 +764,8 @@ pub fn puzzle_solving_interaction(
     }
 }
 pub fn puzzle_solved_interaction(
-    input: Res<Input<KeyCode>>,
-    mouse_button: Res<Input<MouseButton>>,
+    input: Res<ButtonInput<KeyCode>>,
+    mouse_button: Res<ButtonInput<MouseButton>>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
     if input.any_just_pressed(PUZZLE_SOLVED_EXIT)

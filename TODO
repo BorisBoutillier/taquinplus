@@ -1,5 +1,7 @@
 . BUGS:
+    . Image fetching broke with update to bevy 0.14
 . CLEANING:
+    . Use bevy internal gauss blur (new in 0.14)
     . Better separate action event handling between, entity and non-entity related parts
     . Better handle action counting, should be purely Puzzle internal
 . IMPROVEMNTS:
@@ -10,6 +12,7 @@
     . Convert all Cube mesh to Quad, adapt the UV mapping function, but requires change for Outlines.
 
 . FEATURES:
+    . Use 'ehttp' instead of 'attohttpc', should work for WASM.
     . Add a complete PuzzleConfiguration struct
     . Add time keeping, in second but finally reported with 0.1s granularity
     . Add a 'Go' button with countdown to start ( bluring the puzzle ?), necessary for completion time scoring.

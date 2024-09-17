@@ -2,7 +2,10 @@ use std::time::Duration;
 
 use bevy::{
     app::AppExit,
-    render::texture::{CompressedImageFormats, ImageFormat, ImageSampler, ImageType},
+    render::{
+        render_asset::RenderAssetUsages,
+        texture::{CompressedImageFormats, ImageFormat, ImageSampler, ImageType},
+    },
 };
 use rand::thread_rng;
 
@@ -111,7 +114,7 @@ impl Menu {
         self.escape_entry
     }
 }
-#[derive(Component, Clone, Copy, PartialEq, Eq, Event, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Event, Debug)]
 pub enum MenuEntry {
     Show,
     Continue,
@@ -231,8 +234,8 @@ pub fn menu_active_update(
 pub fn menu_interaction(
     mut menu: Query<&mut Menu>,
     button_interaction: Query<(&Interaction, &MenuEntry)>,
-    input: Res<Input<KeyCode>>,
-    mouse_button: Res<Input<MouseButton>>,
+    input: Res<ButtonInput<KeyCode>>,
+    mouse_button: Res<ButtonInput<MouseButton>>,
     mut menu_events: EventWriter<MenuEntry>,
 ) {
     for (interaction, menu_entry) in button_interaction.iter() {
@@ -247,13 +250,13 @@ pub fn menu_interaction(
             Interaction::None => {}
         }
     }
-    if input.just_pressed(KeyCode::Down) {
+    if input.just_pressed(KeyCode::ArrowDown) {
         menu.single_mut().set_next_active();
     }
-    if input.just_pressed(KeyCode::Up) {
+    if input.just_pressed(KeyCode::ArrowUp) {
         menu.single_mut().set_prev_active();
     }
-    if input.just_pressed(KeyCode::Return) || input.just_pressed(KeyCode::Space) {
+    if input.just_pressed(KeyCode::Enter) || input.just_pressed(KeyCode::Space) {
         menu_events.send(menu.single().get_active_entry());
     }
     if input.just_pressed(KeyCode::Escape) || mouse_button.just_pressed(MouseButton::Right) {
@@ -307,6 +310,7 @@ pub fn menu_event_handler(
                                     CompressedImageFormats::NONE,
                                     true,
                                     ImageSampler::Default.clone(),
+                                    RenderAssetUsages::all(),
                                 )
                                 .expect("Image could not be loaded"),
                             )
@@ -335,7 +339,7 @@ pub fn menu_event_handler(
                 next_gamestate.set(GameState::PuzzleSolving);
             }
             MenuEntry::Exit => {
-                app_exit_events.send(AppExit);
+                app_exit_events.send(AppExit::Success);
             }
         }
     }

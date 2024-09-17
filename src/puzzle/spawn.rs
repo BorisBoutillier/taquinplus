@@ -76,8 +76,8 @@ pub fn spawn_puzzle_entities(
             }
         });
         // Spawn the hole entity
-        let hole_material = materials.add(Color::rgba(1.0, 1.0, 1.0, 0.0).into());
-        let hole_mesh = meshes.add(Mesh::from(shape::Cube::new(1.0)));
+        let hole_material = materials.add(Color::srgba(1.0, 1.0, 1.0, 0.0));
+        let hole_mesh = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
         let hole_entity = commands
             .spawn(PbrBundle {
                 material: hole_material,
@@ -103,7 +103,7 @@ pub fn spawn_puzzle_entities(
         puzzle.hole_entity = Some(hole_entity);
         // Action tip entity
         let action_tip_material = materials.add(StandardMaterial {
-            base_color: Color::rgba(1.0, 1.0, 1.0, ACTION_TIP_GRID_ALPHA),
+            base_color: Color::srgba(1.0, 1.0, 1.0, ACTION_TIP_GRID_ALPHA),
             base_color_texture: Some(asset_server.load("ActionTipFullGrid.png")),
             alpha_mode: AlphaMode::Blend,
             ..default()
@@ -121,14 +121,14 @@ pub fn spawn_puzzle_entities(
                     PbrBundle {
                         visibility: Visibility::Hidden,
                         transform: tile_transform,
-                        mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(1.0,1.0)))),
+                        mesh: meshes.add(Mesh::from(Rectangle::new(1.0,1.0))),
                         material: action_tip_material,
                         ..default()
                     },
                     ActionTip,
                     Pickable {
                         should_block_lower: false,
-                        should_emit_events: true,
+                        is_hoverable: false,
                     },
                     On::<Pointer<Out>>::run(
                         |_event: Listener<Pointer<Out>>,
@@ -147,7 +147,7 @@ pub fn spawn_puzzle_entities(
                         transform: Transform::from_scale(Vec3::new(0.5,0.5,1.))
                             // Slightly on top of the action_tip_grid parent to avoid clipping 
                             .with_translation(Vec3::new(0.0,0.0,0.1)),
-                        mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(1.0,1.0)))),
+                        mesh: meshes.add(Mesh::from(Rectangle::new(1.0,1.0))),
                         ..default()
                     }, ActionTipIcon,Pickable::IGNORE)
             );});
@@ -188,7 +188,7 @@ pub fn spawn_puzzle_entities(
         action_tip_materials.insert(
             PuzzleAction::ActiveFlipX,
             materials.add(StandardMaterial {
-                base_color: Color::rgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
+                base_color: Color::srgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
                 base_color_texture: Some(asset_server.load("ActionTipIconFlipX.png")),
                 alpha_mode: AlphaMode::Blend,
                 ..default()
@@ -197,7 +197,7 @@ pub fn spawn_puzzle_entities(
         action_tip_materials.insert(
             PuzzleAction::ActiveFlipY,
             materials.add(StandardMaterial {
-                base_color: Color::rgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
+                base_color: Color::srgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
                 base_color_texture: Some(asset_server.load("ActionTipIconFlipY.png")),
                 alpha_mode: AlphaMode::Blend,
                 ..default()
@@ -206,7 +206,7 @@ pub fn spawn_puzzle_entities(
         action_tip_materials.insert(
             PuzzleAction::ActiveRotateCCW,
             materials.add(StandardMaterial {
-                base_color: Color::rgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
+                base_color: Color::srgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
                 base_color_texture: Some(asset_server.load("ActionTipIconRotateCCW.png")),
                 alpha_mode: AlphaMode::Blend,
                 ..default()
@@ -215,7 +215,7 @@ pub fn spawn_puzzle_entities(
         action_tip_materials.insert(
             PuzzleAction::ActiveRotateCW,
             materials.add(StandardMaterial {
-                base_color: Color::rgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
+                base_color: Color::srgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
                 base_color_texture: Some(asset_server.load("ActionTipIconRotateCW.png")),
                 alpha_mode: AlphaMode::Blend,
                 ..default()
@@ -224,7 +224,7 @@ pub fn spawn_puzzle_entities(
         action_tip_materials.insert(
             PuzzleAction::MoveUp,
             materials.add(StandardMaterial {
-                base_color: Color::rgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
+                base_color: Color::srgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
                 base_color_texture: Some(asset_server.load("ActionTipIconMoveUp.png")),
                 alpha_mode: AlphaMode::Blend,
                 ..default()
@@ -233,7 +233,7 @@ pub fn spawn_puzzle_entities(
         action_tip_materials.insert(
             PuzzleAction::MoveDown,
             materials.add(StandardMaterial {
-                base_color: Color::rgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
+                base_color: Color::srgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
                 base_color_texture: Some(asset_server.load("ActionTipIconMoveDown.png")),
                 alpha_mode: AlphaMode::Blend,
                 ..default()
@@ -242,7 +242,7 @@ pub fn spawn_puzzle_entities(
         action_tip_materials.insert(
             PuzzleAction::MoveRight,
             materials.add(StandardMaterial {
-                base_color: Color::rgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
+                base_color: Color::srgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
                 base_color_texture: Some(asset_server.load("ActionTipIconMoveRight.png")),
                 alpha_mode: AlphaMode::Blend,
                 ..default()
@@ -251,7 +251,7 @@ pub fn spawn_puzzle_entities(
         action_tip_materials.insert(
             PuzzleAction::MoveLeft,
             materials.add(StandardMaterial {
-                base_color: Color::rgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
+                base_color: Color::srgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
                 base_color_texture: Some(asset_server.load("ActionTipIconMoveLeft.png")),
                 alpha_mode: AlphaMode::Blend,
                 ..default()
@@ -259,7 +259,7 @@ pub fn spawn_puzzle_entities(
         );
         action_tip_materials.insert(
             PuzzleAction::NoAction,
-            materials.add(Color::rgba(1.0, 1.0, 1.0, 0.0).into()),
+            materials.add(Color::srgba(1.0, 1.0, 1.0, 0.0)),
         );
 
         // Spawn the puzzle main entity, with solution and tiles children
@@ -271,9 +271,11 @@ pub fn spawn_puzzle_entities(
                 tile_scale,
                 solved_tile_scale,
                 outline_color_active: Color::WHITE,
-                outline_color_misplaced_misoriented: Color::PURPLE,
-                outline_color_misplaced: Color::RED,
-                outline_color_misoriented: Color::ORANGE,
+                outline_color_misplaced_misoriented: Color::Srgba(
+                    bevy::color::palettes::css::PURPLE,
+                ),
+                outline_color_misplaced: Color::Srgba(bevy::color::palettes::css::RED),
+                outline_color_misoriented: Color::Srgba(bevy::color::palettes::css::ORANGE),
                 action_tip_materials,
             })
             .add_child(puzzle_solution)

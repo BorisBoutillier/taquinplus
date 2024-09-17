@@ -16,11 +16,11 @@ opt-level = 1
 opt-level = 3
 
 [dependencies]
-bevy = { version = "0.12", features=["webp"] }
-bevy-inspector-egui = "0.22"
-bevy_mod_outline = "0.6"
-bevy_mod_picking = "0.17"
-bevy_tweening = "0.9"
+bevy = { version = "0.14", features=["webp"] }
+bevy-inspector-egui = "0.25"
+bevy_mod_outline = "0.8"
+bevy_mod_picking = "0.20"
+bevy_tweening = "0.11"
 grid = "0.13"
 rand = "0.8"
 bevy_camera_blur = {git = "https://github.com/BorisBoutillier/bevy_camera_blur", features = ["bevy_tweening"]}

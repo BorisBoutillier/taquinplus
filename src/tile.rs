@@ -106,7 +106,7 @@ impl Tile {
 }
 
 pub fn compute_tile_mesh(size: Coord, position: Coord, flipped_x: bool, flipped_y: bool) -> Mesh {
-    let mut mesh = Mesh::from(shape::Cube::new(1.));
+    let mut mesh = Mesh::from(Cuboid::new(1., 1., 1.));
     set_tile_mesh_uvs(&mut mesh, size, position, flipped_x, flipped_y);
     mesh
 }
@@ -227,7 +227,7 @@ impl MeshFlippingLens {
 }
 
 impl Lens<Mesh> for MeshFlippingLens {
-    fn lerp(&mut self, target: &mut Mesh, ratio: f32) {
+    fn lerp(&mut self, target: &mut dyn Targetable<Mesh>, ratio: f32) {
         if !self.flipped && ratio > 0.5 {
             self.flipped = true;
             set_tile_mesh_uvs(

@@ -13,19 +13,25 @@ mod ui;
 use crate::prelude::*;
 fn main() {
     App::new()
-        .insert_resource(AssetMetaCheck::Never)
         .insert_resource(ClearColor(MAIN_BACKGROUND_COLOR))
-        .add_state::<GameState>()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "TaquinPlus".to_string(),
-                resolution: [800.0, 600.0].into(),
-                resizable: true,
-                fit_canvas_to_parent: true,
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "TaquinPlus".to_string(),
+                        resolution: [800.0, 600.0].into(),
+                        resizable: true,
+                        fit_canvas_to_parent: true,
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(AssetPlugin {
+                    meta_check: AssetMetaCheck::Never,
+                    ..default()
+                }),
+        )
+        .init_state::<GameState>()
         .add_plugins(
             WorldInspectorPlugin::default().run_if(input_toggle_active(false, KeyCode::F12)),
         )
@@ -39,7 +45,10 @@ fn main() {
                 .disable::<DefaultHighlightingPlugin>(),
         )
         .add_plugins((OutlinePlugin, AutoGenerateOutlineNormalsPlugin))
-        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (setup, setup_ui_header, transition_setup_to_menu).run_if(in_state(GameState::Setup)),
+        )
         .add_event::<PuzzleAction>()
         .add_event::<MenuEntry>()
         .add_systems(Update, handle_puzzle_action_events)
@@ -47,7 +56,6 @@ fn main() {
         .add_systems(Update, asset_animator_system::<Mesh>)
         .add_systems(Update, component_animator_system::<GaussianBlurSettings>)
         .add_systems(Update, tile_animation)
-        .add_systems(Startup, setup_ui_header)
         .add_systems(Update, update_ui_header)
         .add_systems(OnEnter(GameState::Menu), setup_menu)
         .add_systems(OnExit(GameState::Menu), despawn_menu)
@@ -112,10 +120,10 @@ fn puzzle_resize(
     }
 }
 
-fn show_fps(input: Res<Input<KeyCode>>, diag: Res<DiagnosticsStore>) {
+fn show_fps(input: Res<ButtonInput<KeyCode>>, diag: Res<DiagnosticsStore>) {
     if input.just_pressed(KeyCode::F11) {
         if let Some(fps) = diag
-            .get(FrameTimeDiagnosticsPlugin::FPS)
+            .get(&FrameTimeDiagnosticsPlugin::FPS)
             .and_then(|fps| fps.smoothed())
         {
             info!("FPS: {:.1}", fps);
