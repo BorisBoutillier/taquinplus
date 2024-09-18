@@ -14,7 +14,6 @@ pub fn spawn_puzzle_entities(
     for (puzzle_entity, mut puzzle) in puzzle.iter_mut() {
         let tile_material = materials.add(StandardMaterial {
             base_color_texture: Some(puzzle.image.clone()),
-            reflectance: 0.0,
             unlit: true,
             ..default()
         });
@@ -107,6 +106,7 @@ pub fn spawn_puzzle_entities(
             base_color: Color::srgba(1.0, 1.0, 1.0, ACTION_TIP_GRID_ALPHA),
             base_color_texture: Some(asset_server.load("ActionTipFullGrid.png")),
             alpha_mode: AlphaMode::Blend,
+            unlit: true,
             ..default()
         });
         let puzzle_action_tip = commands
@@ -192,6 +192,7 @@ pub fn spawn_puzzle_entities(
                 base_color: Color::srgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
                 base_color_texture: Some(asset_server.load("ActionTipIconFlipX.png")),
                 alpha_mode: AlphaMode::Blend,
+                unlit: true,
                 ..default()
             }),
         );
@@ -201,6 +202,7 @@ pub fn spawn_puzzle_entities(
                 base_color: Color::srgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
                 base_color_texture: Some(asset_server.load("ActionTipIconFlipY.png")),
                 alpha_mode: AlphaMode::Blend,
+                unlit: true,
                 ..default()
             }),
         );
@@ -210,6 +212,7 @@ pub fn spawn_puzzle_entities(
                 base_color: Color::srgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
                 base_color_texture: Some(asset_server.load("ActionTipIconRotateCCW.png")),
                 alpha_mode: AlphaMode::Blend,
+                unlit: true,
                 ..default()
             }),
         );
@@ -219,6 +222,7 @@ pub fn spawn_puzzle_entities(
                 base_color: Color::srgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
                 base_color_texture: Some(asset_server.load("ActionTipIconRotateCW.png")),
                 alpha_mode: AlphaMode::Blend,
+                unlit: true,
                 ..default()
             }),
         );
@@ -228,6 +232,7 @@ pub fn spawn_puzzle_entities(
                 base_color: Color::srgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
                 base_color_texture: Some(asset_server.load("ActionTipIconMoveUp.png")),
                 alpha_mode: AlphaMode::Blend,
+                unlit: true,
                 ..default()
             }),
         );
@@ -237,6 +242,7 @@ pub fn spawn_puzzle_entities(
                 base_color: Color::srgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
                 base_color_texture: Some(asset_server.load("ActionTipIconMoveDown.png")),
                 alpha_mode: AlphaMode::Blend,
+                unlit: true,
                 ..default()
             }),
         );
@@ -246,6 +252,7 @@ pub fn spawn_puzzle_entities(
                 base_color: Color::srgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
                 base_color_texture: Some(asset_server.load("ActionTipIconMoveRight.png")),
                 alpha_mode: AlphaMode::Blend,
+                unlit: true,
                 ..default()
             }),
         );
@@ -255,6 +262,7 @@ pub fn spawn_puzzle_entities(
                 base_color: Color::srgba(1.0, 1.0, 1.0, ACTION_TIP_ICON_ALPHA),
                 base_color_texture: Some(asset_server.load("ActionTipIconMoveLeft.png")),
                 alpha_mode: AlphaMode::Blend,
+                unlit: true,
                 ..default()
             }),
         );

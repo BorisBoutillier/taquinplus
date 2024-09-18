@@ -520,7 +520,7 @@ pub fn show_full_puzzle(
                 meshes.add(compute_tile_mesh(puzzle.size(), puzzle.hole, false, false));
             let final_hole_material = materials.add(StandardMaterial {
                 base_color_texture: Some(puzzle.image.clone()),
-                reflectance: 0.0,
+                unlit: true,
                 ..default()
             });
             commands
