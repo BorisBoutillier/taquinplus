@@ -32,10 +32,6 @@ pub struct PuzzleSolution;
 #[derive(Component)]
 pub struct PuzzleTiles;
 
-// Defines is this Tile entity is the Active one
-#[derive(Component)]
-pub struct Active(bool);
-
 #[derive(Component)]
 pub struct PuzzleAssets {
     // Default scale used by each tile
@@ -323,7 +319,6 @@ pub enum PuzzleAction {
     MoveActiveUp,
     MoveActiveDown,
     SetActive(Entity),
-    #[allow(dead_code)]
     ActiveFlipX,
     ActiveFlipY,
     ActiveRotateCW,

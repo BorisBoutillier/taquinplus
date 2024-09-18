@@ -15,6 +15,7 @@ pub fn spawn_puzzle_entities(
         let tile_material = materials.add(StandardMaterial {
             base_color_texture: Some(puzzle.image.clone()),
             reflectance: 0.0,
+            unlit: true,
             ..default()
         });
         let size = puzzle.size();

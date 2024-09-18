@@ -1,5 +1,5 @@
 . BUGS:
-    . Image fetching broke with update to bevy 0.14
+    . Mesh changed to Rectangle,Cuboid, UV mapping now incorrect.
 . CLEANING:
     . Use bevy internal gauss blur (new in 0.14)
     . Better separate action event handling between, entity and non-entity related parts
